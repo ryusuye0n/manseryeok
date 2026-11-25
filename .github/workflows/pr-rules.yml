@@ -1,0 +1,42 @@
+name: PR 규칙
+
+# 제목을 고쳤을 때(edited)도 다시 검사한다. 코드 검사(ci.yml)는 제목 수정으로 다시 돌지 않게 따로 뒀다.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-rules:
+    name: pr-rules
+    # Dependabot이 만드는 PR은 제목과 브랜치 형식을 정할 수 없어서 검사하지 않는다.
+    # 건너뛴 검사는 필수 체크에서 통과로 처리된다.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: 저장소 가져오기 (커밋 검사를 위해 전체 기록)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Node 설치
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # 검사 스크립트는 Node 내장 기능만 쓰므로 npm ci가 필요 없다.
+      - name: PR 규칙 검사
+        run: npm run check:pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
