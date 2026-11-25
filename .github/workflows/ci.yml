@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24, 26]
+    steps:
+      - name: 저장소 가져오기
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Node 설치
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: 의존성 설치 (잠금 파일과 어긋나면 실패)
+        run: npm ci
+
+      - name: 타입 체크
+        run: npm run typecheck
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 테스트
+        run: npm test
+
+      - name: 빌드
+        run: npm run build
+
+      - name: 패키지 검사 (런타임 의존성, 배포 파일)
+        run: npm run check:package
+
+      - name: 작업 폴더가 깨끗한지 확인
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::빌드나 검사가 추적 파일을 바꾸거나 새 파일을 만들었다."
+            git status --short
+            git diff
+            exit 1
+          fi
