@@ -22,7 +22,9 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.build.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:pr": "node scripts/check-pr.ts",
+    "check:package": "node scripts/check-package.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.9",
