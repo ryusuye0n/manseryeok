@@ -47,10 +47,18 @@
 - 제목 형식: `[type] 설명 - #이슈번호`. type은 커밋 규칙의 타입을 쓴다. (예: `[feat] 대운 계산 추가 - #12`, `[fix] 입춘 직전 연주 오류 수정 - #30`)
 - 본문에 꼭 들어갈 항목: `.github/PULL_REQUEST_TEMPLATE.md`의 양식을 그대로 따른다. 관련 링크에는 `closes #이슈번호`를 적는다.
 
+## 개발 명령
+
+- 타입 체크: `npm run typecheck`
+- 린트와 포맷 검사: `npm run lint` (자동 수정은 `npm run lint:fix`)
+- 테스트: `npm test`
+- 빌드: `npm run build`
+
 ## 코드 스타일
 
--
+- 포맷과 린트는 `biome.json` 설정을 따른다.
+- 공개 API(export)에는 타입을 명시한다. (`isolatedDeclarations`가 강제한다.)
 
 ## 하지 말 것
 
--
+- 런타임 의존성(`dependencies`)을 추가하지 않는다.
