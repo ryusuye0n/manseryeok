@@ -46,6 +46,7 @@
 
 - 제목 형식: `[type] 설명 - #이슈번호`. type은 커밋 규칙의 타입을 쓴다. (예: `[feat] 대운 계산 추가 - #12`, `[fix] 입춘 직전 연주 오류 수정 - #30`)
 - 본문에 꼭 들어갈 항목: `.github/PULL_REQUEST_TEMPLATE.md`의 양식을 그대로 따른다. 관련 링크에는 `closes #이슈번호`를 적는다.
+- 검사: 제목, 브랜치 이름, 본문, 커밋 메시지는 CI의 `pr-rules`가 자동으로 검사한다. 템플릿 문구를 그대로 두거나 이슈 번호가 맞지 않으면 실패한다.
 
 ## 개발 명령
 
@@ -53,6 +54,8 @@
 - 린트와 포맷 검사: `npm run lint` (자동 수정은 `npm run lint:fix`)
 - 테스트: `npm test`
 - 빌드: `npm run build`
+- 패키지 검사(런타임 의존성, 배포 파일): `npm run check:package` (빌드한 뒤에 실행한다)
+- PR 규칙 검사: CI의 `pr-rules`가 `npm run check:pr`로 실행한다. 규칙은 `scripts/pr-rules.ts`에 있다.
 
 ## 코드 스타일
 

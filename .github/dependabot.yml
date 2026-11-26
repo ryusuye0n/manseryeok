@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # 워크플로의 액션은 커밋 SHA로 고정되어 있어서, 새 버전은 Dependabot이 알려 준다.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
