@@ -1,8 +1,10 @@
 import { SOLAR_TERM_DATA } from './data/solar-terms.generated'
 import { SOLAR_TERM_LONGITUDES, SOLAR_TERM_NAMES, type SolarTermName } from './solar-term-names'
 
-// 한국천문연구원이 표기한 한국 표준시 그대로의 연, 월, 일, 시, 분.
-// 절대 시각(UTC)으로 바꾸지 않는다. 1954~1961년 표기 기준이 확인되기 전이라 일부러 미뤘다.
+// 한국천문연구원 표와 같은 기준의 연, 월, 일, 시, 분이다. 기준은 서머타임을 뺀 UTC+9 표준시다.
+// 서머타임(1948~1951, 1955~1960, 1987~1988년)과 UTC+8:30 시기(1954~1961년)에 적힌 벽시계 시각은
+// 이 기준으로 먼저 바꾸어서 넣어야 한다. 이 라이브러리는 아직 그 변환을 하지 않는다.
+// 바꾸지 않고 넣으면 절기 경계 근처에서 이웃한 절기가 나올 수 있다 (서머타임은 1시간, UTC+8:30은 30분).
 export interface CivilDateTime {
   year: number
   month: number
@@ -82,6 +84,8 @@ function assertCivilDateTime(at: CivilDateTime): void {
 }
 
 // 주어진 시각이 속한 절기와 다음 절기를 돌려준다.
+// 입력은 서머타임을 뺀 UTC+9 표준시여야 한다. 벽시계 시각을 그대로 넣으면 서머타임과
+// UTC+8:30 시기에 절기 경계 근처에서 틀린 절기가 나온다. (CivilDateTime 설명 참고)
 // 앞뒤 절기 중 하나라도 표에 없으면(1920년 첫 소한 전, 2028년 마지막 동지 이후) RangeError를 낸다.
 export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
   assertCivilDateTime(at)
