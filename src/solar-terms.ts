@@ -100,7 +100,7 @@ export function getSolarTerms(year: number): SolarTerm[] {
 
 // 주어진 시각이 속한 절기와 다음 절기를 돌려준다.
 // 입력은 서머타임을 뺀 UTC+9 표준시여야 한다. 벽시계 시각을 그대로 넣으면 서머타임과
-// UTC+8:30 시기에 절기 경계 근처에서 틀린 절기가 나온다. (CivilDateTime 설명 참고)
+// UTC+8:30 시기에 절기 경계 근처에서 틀린 절기가 나온다. (toKoreaStandardTime으로 바꾼 뒤 넣는다. CivilDateTime 설명 참고)
 // 앞뒤 절기를 알 수 없으면(1900년 첫 소한 전, 2150년 마지막 동지 이후) RangeError를 낸다.
 export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
   assertCivilDateTime(at)
