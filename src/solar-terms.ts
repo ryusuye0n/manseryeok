@@ -20,14 +20,17 @@ export interface SolarTermPeriod {
 
 const years = Object.keys(SOLAR_TERM_DATA).map(Number)
 
-export const SOLAR_TERM_YEARS: { readonly first: number; readonly last: number } = {
+export const SOLAR_TERM_YEARS: { readonly first: number; readonly last: number } = Object.freeze({
   first: Math.min(...years),
   last: Math.max(...years),
-}
+})
 
 // 표나 계산으로 절기를 알 수 있는 연도. 표 범위를 포함한다.
 export const SOLAR_TERM_SUPPORTED_YEARS: { readonly first: number; readonly last: number } =
-  SOLAR_TERM_CALCULATION_YEARS
+  Object.freeze({
+    first: SOLAR_TERM_CALCULATION_YEARS.first,
+    last: SOLAR_TERM_CALCULATION_YEARS.last,
+  })
 
 const isSupportedYear = (year: number): boolean =>
   Number.isInteger(year) &&

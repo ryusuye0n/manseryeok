@@ -17,10 +17,8 @@ const DEGREES = Math.PI / 180
 const UNIX_EPOCH_JD = 2440587.5
 const MS_PER_DAY = 86_400_000
 
-export const SOLAR_LONGITUDE_YEARS: { readonly first: number; readonly last: number } = {
-  first: 1900,
-  last: 2150,
-}
+export const SOLAR_LONGITUDE_YEARS: { readonly first: number; readonly last: number } =
+  Object.freeze({ first: 1900, last: 2150 })
 
 // 지구시(TT)와 세계시(UT)의 차이(초). 1900년 1월 1일부터 2150년 12월 31일까지만 지원한다.
 // year는 소수 연도다. 다항식은 year + (월 - 0.5) / 12 같은 값을 넣는 식이다.

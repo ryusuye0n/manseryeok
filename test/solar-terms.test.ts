@@ -145,6 +145,27 @@ describe('getSolarTerms', () => {
     }
   })
 
+  it('계산값도 바꿔서 받아도 다음 조회가 달라지지 않는다 (저장해 둔 값을 복사해 돌려준다)', () => {
+    const first = getSolarTerms(2030)
+    const original = structuredClone(first)
+    first.pop()
+    const head = first[0]
+    if (head === undefined) throw new Error('데이터가 비어 있다')
+    head.minute += 7
+    expect(getSolarTerms(2030)).toEqual(original)
+  })
+
+  it('지원 범위 상수는 바꿀 수 없다', () => {
+    expect(() => {
+      ;(SOLAR_TERM_YEARS as { first: number }).first = 1800
+    }).toThrow(TypeError)
+    expect(() => {
+      ;(SOLAR_TERM_SUPPORTED_YEARS as { last: number }).last = 3000
+    }).toThrow(TypeError)
+    expect(SOLAR_TERM_SUPPORTED_YEARS).toEqual({ first: 1900, last: 2150 })
+    expect(getSolarTerms(2150)).toHaveLength(24)
+  })
+
   it('항상 새 배열을 돌려준다 (바꿔도 표가 달라지지 않는다)', () => {
     const first = getSolarTerms(2024)
     first.pop()

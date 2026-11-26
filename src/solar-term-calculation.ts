@@ -11,7 +11,7 @@ const FIRST_TERM_GUESS_DAY = 5
 const MEAN_TERM_DAYS = 365.2422 / 24
 
 export const SOLAR_TERM_CALCULATION_YEARS: { readonly first: number; readonly last: number } =
-  SOLAR_LONGITUDE_YEARS
+  Object.freeze({ first: SOLAR_LONGITUDE_YEARS.first, last: SOLAR_LONGITUDE_YEARS.last })
 
 // 한 해의 24절기 시각을 소한부터 동지까지 한국 표준시(UTC+9) 분 단위로 돌려준다.
 // 초는 가까운 분으로 반올림한다. 한국천문연구원 표와 같은 방식이다.
