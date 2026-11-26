@@ -7,7 +7,15 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**", "test/**", "scripts/**", "*.ts", "*.json", "!package-lock.json"]
+    "includes": [
+      "src/**",
+      "test/**",
+      "scripts/**",
+      "*.ts",
+      "*.json",
+      "!package-lock.json",
+      "!src/data/*.generated.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
