@@ -22,9 +22,10 @@ export const SOLAR_LONGITUDE_YEARS: { readonly first: number; readonly last: num
   last: 2150,
 }
 
-// 지구시(TT)와 세계시(UT)의 차이(초). 1900~2150년만 지원한다.
+// 지구시(TT)와 세계시(UT)의 차이(초). 1900년 1월 1일부터 2150년 12월 31일까지만 지원한다.
+// year는 소수 연도다. 다항식은 year + (월 - 0.5) / 12 같은 값을 넣는 식이다.
 export function deltaT(year: number): number {
-  if (year < SOLAR_LONGITUDE_YEARS.first || year > SOLAR_LONGITUDE_YEARS.last) {
+  if (year < SOLAR_LONGITUDE_YEARS.first || year >= SOLAR_LONGITUDE_YEARS.last + 1) {
     throw new RangeError(
       `계산할 수 있는 연도는 ${SOLAR_LONGITUDE_YEARS.first}~${SOLAR_LONGITUDE_YEARS.last}년이다: ${year}`,
     )
@@ -106,8 +107,10 @@ export function apparentSolarLongitude(jde: number): number {
 
 // 태양 황경이 target도가 되는 순간을 UTC 밀리초(Unix 시각)로 돌려준다.
 // guess는 그 순간 근처의 Unix 시각(밀리초)이다.
-export function solveSolarLongitude(target: number, guessUnixMs: number, year: number): number {
-  const deltaDays = deltaT(year) / 86_400
+export function solveSolarLongitude(target: number, guessUnixMs: number): number {
+  // ΔT는 해마다 몇 초씩 변하므로 추정 시각의 월까지 반영한 소수 연도로 구한다.
+  const guess = new Date(guessUnixMs)
+  const deltaDays = deltaT(guess.getUTCFullYear() + (guess.getUTCMonth() + 0.5) / 12) / 86_400
   let jde = guessUnixMs / MS_PER_DAY + UNIX_EPOCH_JD + deltaDays
   // 태양은 하루에 약 0.9856도 움직인다. 뉴턴법으로 몇 번 되풀이하면 충분히 수렴한다.
   for (let step = 0; step < 8; step++) {

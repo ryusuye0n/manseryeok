@@ -28,7 +28,7 @@ export function calculateSolarTermTimes(year: number): CivilDateTime[] {
   const start = Date.UTC(year, 0, FIRST_TERM_GUESS_DAY)
   return SOLAR_TERM_LONGITUDES.map((longitude, index) => {
     const guess = start + index * MEAN_TERM_DAYS * 86_400_000
-    const utcMs = solveSolarLongitude(longitude, guess, year)
+    const utcMs = solveSolarLongitude(longitude, guess)
     const kst = new Date(Math.round((utcMs + KST_OFFSET_MS) / MS_PER_MINUTE) * MS_PER_MINUTE)
     return {
       year: kst.getUTCFullYear(),

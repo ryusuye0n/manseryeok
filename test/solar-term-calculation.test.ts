@@ -84,9 +84,15 @@ describe('ΔT', () => {
     }
   })
 
-  it('지원하지 않는 연도는 RangeError다', () => {
-    expect(() => deltaT(1899)).toThrow(RangeError)
+  it('소수 연도를 받는다 (1900년 1월 1일부터 2150년 12월 31일까지)', () => {
+    expect(Number.isFinite(deltaT(2150.96))).toBe(true)
+    expect(deltaT(2100.5)).toBeGreaterThan(deltaT(2100.0))
+    expect(() => deltaT(1899.99)).toThrow(RangeError)
     expect(() => deltaT(2151)).toThrow(RangeError)
+  })
+
+  it('연도 안에서도 달라진다 (같은 해 동지가 소한보다 ΔT가 크다)', () => {
+    expect(deltaT(2100.96)).toBeGreaterThan(deltaT(2100.04))
   })
 })
 
