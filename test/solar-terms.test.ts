@@ -40,7 +40,7 @@ describe('표 데이터 무결성', () => {
     const rows = new Map(
       Object.entries(SOLAR_TERM_DATA).map(([year, terms]) => [Number(year), terms]),
     )
-    expect(formatDataFile(rows)).toBe(onDisk)
+    expect(formatDataFile(rows, ['1950년 대한'])).toBe(onDisk)
   })
 
   it.each(allYears)('%i년: 24개이고 이름 순서와 태양황경 순서가 맞다', (year) => {
@@ -211,6 +211,20 @@ describe('getSolarTermPeriod', () => {
       expect(() => getSolarTermPeriod(at(2028, 12, 21, 17, 20))).toThrow(RangeError)
       expect(() => getSolarTermPeriod(at(2029, 1, 1))).toThrow(RangeError)
       expect(() => getSolarTermPeriod(at(2100, 6, 1))).toThrow(RangeError)
+    })
+  })
+
+  describe('입력 시각의 기준', () => {
+    // 입력을 UTC+9 표준시로 보고 표와 그대로 비교한다. 서머타임이나 UTC+8:30의 벽시계 시각은
+    // 변환하지 않으므로, 호출하는 쪽이 표준시로 바꿔서 넣어야 한다는 점을 고정해 둔다.
+    it('1988년 소서(07-07 06:33)는 입력한 시각을 변환 없이 비교한다', () => {
+      expect(getSolarTermPeriod(at(1988, 7, 7, 6, 32)).current.name).toBe('하지')
+      expect(getSolarTermPeriod(at(1988, 7, 7, 6, 33)).current.name).toBe('소서')
+    })
+
+    it('서머타임 중 벽시계 06:40(표준시 05:40)을 그대로 넣으면 소서가 나온다 (표준시로 바꿔 넣으면 하지)', () => {
+      expect(getSolarTermPeriod(at(1988, 7, 7, 6, 40)).current.name).toBe('소서')
+      expect(getSolarTermPeriod(at(1988, 7, 7, 5, 40)).current.name).toBe('하지')
     })
   })
 

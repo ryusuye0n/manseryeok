@@ -19,6 +19,7 @@ const withChange = (index: number, change: Partial<ApiItem>, year = 2024): ApiIt
 describe('toYearRow', () => {
   it('올바른 응답은 24개 항목과 문제 없음을 돌려준다', () => {
     const row = toYearRow(2024, items())
+    expect(row.adjusted).toEqual([])
     expect(row.problems).toEqual([])
     expect(row.terms).toHaveLength(24)
     expect(row.terms[0]).toBe('01051200')
@@ -47,6 +48,12 @@ describe('toYearRow', () => {
     expect(toYearRow(2024, input).problems.some((problem) => problem.includes('24개여야'))).toBe(
       true,
     )
+  })
+
+  it('24개를 넘으면 남는 항목이라고만 알리고 undefined가 나오지 않는다', () => {
+    const problems = toYearRow(2024, [...items(), ...items().slice(0, 2)]).problems
+    expect(problems.filter((problem) => problem.includes('남는 항목'))).toHaveLength(2)
+    expect(problems.some((problem) => problem.includes('undefined'))).toBe(false)
   })
 
   it('이름이 순서와 다르면 몇 번째인지 알려 준다', () => {
@@ -84,6 +91,7 @@ describe('toYearRow', () => {
       const row = toYearRow(2024, withChange(1, { locdate: 20240120, kst: '2400      ' }))
       expect(row.problems).toEqual([])
       expect(row.terms[1]).toBe('01210000')
+      expect(row.adjusted).toEqual(['2024년 대한'])
     })
 
     it('월말의 24:00은 다음 달 1일 00:00이 된다', () => {
@@ -131,6 +139,13 @@ describe('formatDataFile', () => {
     const first = text.split('\n').find((line) => line.startsWith('  2024: ['))
     const values = (first?.match(/'(\d{8})'/g) ?? []).map((value) => value.replaceAll("'", ''))
     expect(values).toEqual(rows.get(2024))
+  })
+
+  it('24:00을 바꾼 항목이 있으면 머리말에 그 목록을 적고 없으면 적지 않는다', () => {
+    expect(formatDataFile(rows, ['1950년 대한', '1960년 소서'])).toContain(
+      '바꿔 저장했다: 1950년 대한, 1960년 소서',
+    )
+    expect(text).not.toContain('바꿔 저장했다')
   })
 
   it('줄바꿈으로 끝난다', () => {

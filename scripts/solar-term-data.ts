@@ -15,6 +15,8 @@ export interface YearRow {
   // 소한부터 동지까지 24개. 각 항목은 "MMDDHHmm" (한국 표준시, 분 단위)
   terms: string[]
   problems: string[]
+  // 원본이 24:00으로 적어 다음 날 00:00으로 바꾼 절기. 예: "1950년 대한"
+  adjusted: string[]
 }
 
 const pad = (value: number): string => String(value).padStart(2, '0')
@@ -34,6 +36,7 @@ export function toYearRow(year: number, items: readonly ApiItem[]): YearRow {
     (a, b) => a.locdate - b.locdate || a.kst.trim().localeCompare(b.kst.trim()),
   )
   const terms: string[] = []
+  const adjusted: string[] = []
   let previous = ''
 
   for (const [index, item] of sorted.entries()) {
@@ -65,16 +68,21 @@ export function toYearRow(year: number, items: readonly ApiItem[]): YearRow {
       } else {
         date = `${year}${pad(next.getUTCMonth() + 1)}${pad(next.getUTCDate())}`
         time = '0000'
+        adjusted.push(label)
       }
     }
 
-    if (item.dateName !== SOLAR_TERM_NAMES[index]) {
-      problems.push(`${label}: ${index + 1}번째 절기는 ${SOLAR_TERM_NAMES[index]}이어야 한다`)
-    }
-    if (item.sunLongitude !== undefined && item.sunLongitude !== SOLAR_TERM_LONGITUDES[index]) {
-      problems.push(
-        `${label}: 태양황경이 ${item.sunLongitude}도다. ${SOLAR_TERM_LONGITUDES[index]}도여야 한다`,
-      )
+    if (index >= SOLAR_TERM_NAMES.length) {
+      problems.push(`${label}: ${index + 1}번째 남는 항목이다`)
+    } else {
+      if (item.dateName !== SOLAR_TERM_NAMES[index]) {
+        problems.push(`${label}: ${index + 1}번째 절기는 ${SOLAR_TERM_NAMES[index]}이어야 한다`)
+      }
+      if (item.sunLongitude !== undefined && item.sunLongitude !== SOLAR_TERM_LONGITUDES[index]) {
+        problems.push(
+          `${label}: 태양황경이 ${item.sunLongitude}도다. ${SOLAR_TERM_LONGITUDES[index]}도여야 한다`,
+        )
+      }
     }
     const stamp = `${date}${time}`
     if (previous !== '' && stamp <= previous) {
@@ -83,10 +91,13 @@ export function toYearRow(year: number, items: readonly ApiItem[]): YearRow {
     previous = stamp
     terms.push(`${date.slice(4)}${time}`)
   }
-  return { terms, problems }
+  return { terms, problems, adjusted }
 }
 
-export function formatDataFile(rows: ReadonlyMap<number, readonly string[]>): string {
+export function formatDataFile(
+  rows: ReadonlyMap<number, readonly string[]>,
+  adjusted: readonly string[] = [],
+): string {
   const years = [...rows.keys()].sort((a, b) => a - b)
   const lines = years.map((year) => {
     const terms = (rows.get(year) ?? []).map((term) => `'${term}'`).join(', ')
@@ -96,7 +107,11 @@ export function formatDataFile(rows: ReadonlyMap<number, readonly string[]>): st
     '// 이 파일은 scripts/fetch-solar-terms.ts가 만든다. 직접 고치지 않는다.',
     '// 출처: 공공데이터포털 한국천문연구원_특일 정보 (24절기 정보 조회), 이용허락범위 제한 없음',
     '// 형식: 연도 -> 소한부터 동지까지 24개. 각 항목은 "MMDDHHmm" (한국 표준시, 분 단위)',
-    '// 원본이 자정을 전날 24:00으로 적은 경우(1950년 대한)는 다음 날 00:00으로 바꿔 저장했다.',
+    ...(adjusted.length === 0
+      ? []
+      : [
+          `// 원본이 자정을 전날 24:00으로 적은 경우는 다음 날 00:00으로 바꿔 저장했다: ${adjusted.join(', ')}`,
+        ]),
     'export const SOLAR_TERM_DATA: Readonly<Record<number, readonly string[]>> = {',
     ...lines,
     '}',
