@@ -73,10 +73,10 @@ describe('생성된 데이터 파일', () => {
   })
 
   it('생성 파일은 생성기가 만든 모양 그대로다 (손으로 고치지 않았다)', () => {
-    const onDisk = readFileSync('src/data/earth-longitude.generated.ts', 'utf8').replaceAll(
-      '\r\n',
-      '\n',
-    )
+    const onDisk = readFileSync(
+      new URL('../src/data/earth-longitude.generated.ts', import.meta.url),
+      'utf8',
+    ).replaceAll('\r\n', '\n')
     expect(formatEarthLongitudeFile(EARTH_LONGITUDE_SERIES, 1e-7)).toBe(onDisk)
   })
 })

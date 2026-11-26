@@ -22,6 +22,20 @@ const at = (year: number, month: number, day: number, hour = 0, minute = 0): Civ
 const toDays = (time: CivilDateTime): number =>
   Date.UTC(time.year, time.month - 1, time.day, time.hour, time.minute) / 86_400_000
 
+// 1분 전 시각. 분이 0이면 시, 일, 월, 해가 함께 바뀐다.
+const oneMinuteBefore = (time: CivilDateTime): CivilDateTime => {
+  const earlier = new Date(
+    Date.UTC(time.year, time.month - 1, time.day, time.hour, time.minute - 1),
+  )
+  return at(
+    earlier.getUTCFullYear(),
+    earlier.getUTCMonth() + 1,
+    earlier.getUTCDate(),
+    earlier.getUTCHours(),
+    earlier.getUTCMinutes(),
+  )
+}
+
 const allYears: number[] = []
 for (let year = SOLAR_TERM_YEARS.first; year <= SOLAR_TERM_YEARS.last; year++) allYears.push(year)
 
@@ -38,10 +52,10 @@ describe('지원 범위', () => {
 
 describe('표 데이터 무결성', () => {
   it('생성 파일은 생성기가 만든 모양 그대로다 (손으로 고치지 않았다)', () => {
-    const onDisk = readFileSync('src/data/solar-terms.generated.ts', 'utf8').replaceAll(
-      '\r\n',
-      '\n',
-    )
+    const onDisk = readFileSync(
+      new URL('../src/data/solar-terms.generated.ts', import.meta.url),
+      'utf8',
+    ).replaceAll('\r\n', '\n')
     const rows = new Map(
       Object.entries(SOLAR_TERM_DATA).map(([year, terms]) => [Number(year), terms]),
     )
@@ -261,7 +275,7 @@ describe('getSolarTermPeriod', () => {
       const first = getSolarTerms(1900)[0]
       if (first === undefined) throw new Error('데이터가 비어 있다')
       expect(getSolarTermPeriod(first).current.name).toBe('소한')
-      expect(() => getSolarTermPeriod({ ...first, minute: first.minute - 1 })).toThrow(RangeError)
+      expect(() => getSolarTermPeriod(oneMinuteBefore(first))).toThrow(RangeError)
       expect(() => getSolarTermPeriod(at(1899, 12, 31, 23, 59))).toThrow(RangeError)
     })
 
@@ -270,7 +284,7 @@ describe('getSolarTermPeriod', () => {
       if (last === undefined) throw new Error('데이터가 비어 있다')
       expect(() => getSolarTermPeriod(last)).toThrow(RangeError)
       expect(() => getSolarTermPeriod(at(2151, 1, 1))).toThrow(RangeError)
-      const before = getSolarTermPeriod({ ...last, minute: last.minute - 1 })
+      const before = getSolarTermPeriod(oneMinuteBefore(last))
       expect([before.current.name, before.next.name]).toEqual(['대설', '동지'])
     })
   })
