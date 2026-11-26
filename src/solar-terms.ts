@@ -8,7 +8,8 @@ export interface SolarTerm extends CivilDateTime {
   // 태양황경(도). 소한 285도에서 15도씩 늘어 동지 270도로 끝난다.
   longitude: number
   // 'table'은 한국천문연구원 표, 'calculated'는 태양 황경으로 계산한 값이다.
-  // 계산값은 표와 비교해 분 단위로 1분쯤 어긋날 수 있다.
+  // 계산값은 1920~2028년 표와 비교해 분 단위로 1분쯤 어긋났다. 표 밖의 미래(2029년 이후)는
+  // 지구 자전 보정값(ΔT)을 예측해야 해서 몇 분까지 어긋날 수 있고, 먼 해일수록 불확실하다.
   source: 'table' | 'calculated'
 }
 
