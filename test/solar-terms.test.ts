@@ -7,6 +7,7 @@ import {
   getSolarTermPeriod,
   getSolarTerms,
   SOLAR_TERM_NAMES,
+  SOLAR_TERM_SUPPORTED_YEARS,
   SOLAR_TERM_YEARS,
 } from '../src/index'
 
@@ -21,11 +22,29 @@ const at = (year: number, month: number, day: number, hour = 0, minute = 0): Civ
 const toDays = (time: CivilDateTime): number =>
   Date.UTC(time.year, time.month - 1, time.day, time.hour, time.minute) / 86_400_000
 
+// 1분 전 시각. 분이 0이면 시, 일, 월, 해가 함께 바뀐다.
+const oneMinuteBefore = (time: CivilDateTime): CivilDateTime => {
+  const earlier = new Date(
+    Date.UTC(time.year, time.month - 1, time.day, time.hour, time.minute - 1),
+  )
+  return at(
+    earlier.getUTCFullYear(),
+    earlier.getUTCMonth() + 1,
+    earlier.getUTCDate(),
+    earlier.getUTCHours(),
+    earlier.getUTCMinutes(),
+  )
+}
+
 const allYears: number[] = []
 for (let year = SOLAR_TERM_YEARS.first; year <= SOLAR_TERM_YEARS.last; year++) allYears.push(year)
 
 describe('지원 범위', () => {
-  it('1920년부터 2028년까지다', () => {
+  it('계산까지 포함하면 1900년부터 2150년까지다', () => {
+    expect(SOLAR_TERM_SUPPORTED_YEARS).toEqual({ first: 1900, last: 2150 })
+  })
+
+  it('표는 1920년부터 2028년까지다', () => {
     expect(SOLAR_TERM_YEARS).toEqual({ first: 1920, last: 2028 })
     expect(allYears).toHaveLength(109)
   })
@@ -33,10 +52,10 @@ describe('지원 범위', () => {
 
 describe('표 데이터 무결성', () => {
   it('생성 파일은 생성기가 만든 모양 그대로다 (손으로 고치지 않았다)', () => {
-    const onDisk = readFileSync('src/data/solar-terms.generated.ts', 'utf8').replaceAll(
-      '\r\n',
-      '\n',
-    )
+    const onDisk = readFileSync(
+      new URL('../src/data/solar-terms.generated.ts', import.meta.url),
+      'utf8',
+    ).replaceAll('\r\n', '\n')
     const rows = new Map(
       Object.entries(SOLAR_TERM_DATA).map(([year, terms]) => [Number(year), terms]),
     )
@@ -125,13 +144,49 @@ describe('알려진 값', () => {
 })
 
 describe('getSolarTerms', () => {
+  it('표가 있는 연도는 표 값이다', () => {
+    for (const year of [1920, 2000, 2028]) {
+      expect(new Set(getSolarTerms(year).map((term) => term.source))).toEqual(new Set(['table']))
+    }
+  })
+
+  it('표 밖의 연도는 계산값이고 24개다', () => {
+    for (const year of [1900, 1919, 2029, 2150]) {
+      const terms = getSolarTerms(year)
+      expect(terms).toHaveLength(24)
+      expect(new Set(terms.map((term) => term.source))).toEqual(new Set(['calculated']))
+      expect(terms.map((term) => term.name)).toEqual([...SOLAR_TERM_NAMES])
+    }
+  })
+
+  it('계산값도 바꿔서 받아도 다음 조회가 달라지지 않는다 (저장해 둔 값을 복사해 돌려준다)', () => {
+    const first = getSolarTerms(2030)
+    const original = structuredClone(first)
+    first.pop()
+    const head = first[0]
+    if (head === undefined) throw new Error('데이터가 비어 있다')
+    head.minute += 7
+    expect(getSolarTerms(2030)).toEqual(original)
+  })
+
+  it('지원 범위 상수는 바꿀 수 없다', () => {
+    expect(() => {
+      ;(SOLAR_TERM_YEARS as { first: number }).first = 1800
+    }).toThrow(TypeError)
+    expect(() => {
+      ;(SOLAR_TERM_SUPPORTED_YEARS as { last: number }).last = 3000
+    }).toThrow(TypeError)
+    expect(SOLAR_TERM_SUPPORTED_YEARS).toEqual({ first: 1900, last: 2150 })
+    expect(getSolarTerms(2150)).toHaveLength(24)
+  })
+
   it('항상 새 배열을 돌려준다 (바꿔도 표가 달라지지 않는다)', () => {
     const first = getSolarTerms(2024)
     first.pop()
     expect(getSolarTerms(2024)).toHaveLength(24)
   })
 
-  it.each([1919, 2029, 1800, 2100, 1920.5, Number.NaN, Number.POSITIVE_INFINITY])(
+  it.each([1899, 2151, 1800, 2200, 1920.5, Number.NaN, Number.POSITIVE_INFINITY])(
     '지원하지 않는 연도 %s는 RangeError를 낸다',
     (year) => {
       expect(() => getSolarTerms(year)).toThrow(RangeError)
@@ -139,7 +194,7 @@ describe('getSolarTerms', () => {
   )
 
   it('오류 메시지에 지원 범위가 들어 있다', () => {
-    expect(() => getSolarTerms(1919)).toThrow('1920~2028')
+    expect(() => getSolarTerms(1899)).toThrow('1900~2150')
   })
 })
 
@@ -188,6 +243,7 @@ describe('getSolarTermPeriod', () => {
     expect(getSolarTermPeriod(at(2024, 3, 1)).current).toEqual({
       name: '우수',
       longitude: 330,
+      source: 'table',
       year: 2024,
       month: 2,
       day: 19,
@@ -196,21 +252,40 @@ describe('getSolarTermPeriod', () => {
     })
   })
 
-  describe('표의 처음과 끝', () => {
-    it('첫 소한 시각부터는 조회되고, 1분 전은 RangeError다', () => {
-      const first = getSolarTermPeriod(at(1920, 1, 6, 23, 41))
-      expect([first.current.name, first.next.name]).toEqual(['소한', '대한'])
-      expect(() => getSolarTermPeriod(at(1920, 1, 6, 23, 40))).toThrow(RangeError)
-      expect(() => getSolarTermPeriod(at(1920, 1, 1))).toThrow(RangeError)
-      expect(() => getSolarTermPeriod(at(1919, 12, 31, 23, 59))).toThrow(RangeError)
+  describe('표와 계산의 이음매', () => {
+    it('2028년 마지막 동지 뒤에는 2029년 소한(계산값)이 다음 절기다', () => {
+      const period = getSolarTermPeriod(at(2028, 12, 31, 12, 0))
+      expect([period.current.name, period.current.source]).toEqual(['동지', 'table'])
+      expect([period.next.name, period.next.year, period.next.source]).toEqual([
+        '소한',
+        2029,
+        'calculated',
+      ])
     })
 
-    it('마지막 동지 직전까지는 조회되고, 그 시각부터는 RangeError다', () => {
-      const last = getSolarTermPeriod(at(2028, 12, 21, 17, 19))
-      expect([last.current.name, last.next.name]).toEqual(['대설', '동지'])
-      expect(() => getSolarTermPeriod(at(2028, 12, 21, 17, 20))).toThrow(RangeError)
-      expect(() => getSolarTermPeriod(at(2029, 1, 1))).toThrow(RangeError)
-      expect(() => getSolarTermPeriod(at(2100, 6, 1))).toThrow(RangeError)
+    it('1919년 동지(계산값) 뒤에는 1920년 소한(표 값)이 다음 절기다', () => {
+      const period = getSolarTermPeriod(at(1920, 1, 1, 0, 0))
+      expect([period.current.name, period.current.source]).toEqual(['동지', 'calculated'])
+      expect([period.next.name, period.next.source]).toEqual(['소한', 'table'])
+    })
+  })
+
+  describe('지원 범위의 처음과 끝', () => {
+    it('1900년 첫 소한 시각부터는 조회되고, 1분 전은 RangeError다', () => {
+      const first = getSolarTerms(1900)[0]
+      if (first === undefined) throw new Error('데이터가 비어 있다')
+      expect(getSolarTermPeriod(first).current.name).toBe('소한')
+      expect(() => getSolarTermPeriod(oneMinuteBefore(first))).toThrow(RangeError)
+      expect(() => getSolarTermPeriod(at(1899, 12, 31, 23, 59))).toThrow(RangeError)
+    })
+
+    it('2150년 마지막 동지 직전까지는 조회되고, 그 시각부터는 RangeError다', () => {
+      const last = getSolarTerms(2150)[23]
+      if (last === undefined) throw new Error('데이터가 비어 있다')
+      expect(() => getSolarTermPeriod(last)).toThrow(RangeError)
+      expect(() => getSolarTermPeriod(at(2151, 1, 1))).toThrow(RangeError)
+      const before = getSolarTermPeriod(oneMinuteBefore(last))
+      expect([before.current.name, before.next.name]).toEqual(['대설', '동지'])
     })
   })
 

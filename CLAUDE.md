@@ -57,6 +57,7 @@
 - 패키지 검사(런타임 의존성, 배포 파일): `npm run check:package` (빌드한 뒤에 실행한다)
 - PR 규칙 검사: CI의 `pr-rules`가 `npm run check:pr`로 실행한다. 규칙은 `scripts/pr-rules.ts`에 있다.
 - 절기 표 다시 만들기: `npm run fetch:solar-terms` (한국천문연구원 API 키가 `.env`의 `KASI_SERVICE_KEY`에 있어야 한다)
+- 태양 황경 계산 데이터 다시 만들기: `node scripts/extract-vsop87.ts <VSOP87D.ear 경로>` (원본은 IMCCE에서 받는다. 저장소에 넣지 않는다)
 
 ## 코드 스타일
 
@@ -67,4 +68,4 @@
 
 - 런타임 의존성(`dependencies`)을 추가하지 않는다.
 - `.env`와 API 키를 커밋하거나 출력하지 않는다. 키는 채팅에도 붙이지 않는다.
-- `src/data/solar-terms.generated.ts`를 손으로 고치지 않는다. 고칠 일이 있으면 생성 스크립트를 고쳐 다시 만든다.
+- `src/data/*.generated.ts`를 손으로 고치지 않는다. 고칠 일이 있으면 생성 스크립트를 고쳐 다시 만든다.
