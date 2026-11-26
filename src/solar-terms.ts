@@ -61,6 +61,19 @@ function parseTerm(year: number, index: number, text: string): SolarTerm {
   }
 }
 
+// 계산은 비싸서(절기 24개마다 수백 번의 삼각함수) 연도별로 한 번만 하고 저장해 둔다.
+// 저장한 값은 돌려주기 전에 새 객체로 복사해서, 받은 쪽이 바꿔도 저장값이 달라지지 않는다.
+const calculatedCache = new Map<number, readonly CivilDateTime[]>()
+
+function calculatedTimes(year: number): CivilDateTime[] {
+  let times = calculatedCache.get(year)
+  if (times === undefined) {
+    times = calculateSolarTermTimes(year)
+    calculatedCache.set(year, times)
+  }
+  return times.map((time) => ({ ...time }))
+}
+
 // 연도마다 24절기를 소한부터 동지까지 시각 순서로 돌려준다.
 // 표가 있는 연도(SOLAR_TERM_YEARS)는 표 값을, 그 밖의 SOLAR_TERM_SUPPORTED_YEARS는 계산값을 쓴다.
 export function getSolarTerms(year: number): SolarTerm[] {
@@ -71,7 +84,7 @@ export function getSolarTerms(year: number): SolarTerm[] {
       `지원하는 연도는 ${SOLAR_TERM_SUPPORTED_YEARS.first}~${SOLAR_TERM_SUPPORTED_YEARS.last}년이다: ${year}`,
     )
   }
-  return calculateSolarTermTimes(year).map((time, index) => {
+  return calculatedTimes(year).map((time, index) => {
     const name = SOLAR_TERM_NAMES[index]
     const longitude = SOLAR_TERM_LONGITUDES[index]
     if (name === undefined || longitude === undefined) {
