@@ -25,16 +25,21 @@ const mask = (text: string): string =>
     .replaceAll(key, '[키]')
     .replaceAll(rawKey, '[키]')
 
+const DEFAULT_OUT = 'src/data/solar-terms.generated.ts'
+
 function parseArgs(args: readonly string[]): { from: number; to: number; out: string } {
-  const options = { from: 1920, to: 2028, out: 'src/data/solar-terms.generated.ts' }
+  const options = { from: 1920, to: 2028, out: DEFAULT_OUT }
+  let outGiven = false
   for (let index = 0; index < args.length; index++) {
     const arg = args[index]
     const value = args[++index]
     if (value === undefined) throw new Error(`${arg}에 값이 필요하다`)
     if (arg === '--from') options.from = Number(value)
     else if (arg === '--to') options.to = Number(value)
-    else if (arg === '--out') options.out = value
-    else throw new Error(`알 수 없는 인자: ${arg}`)
+    else if (arg === '--out') {
+      options.out = value
+      outGiven = true
+    } else throw new Error(`알 수 없는 인자: ${arg}`)
   }
   if (
     !Number.isInteger(options.from) ||
@@ -43,8 +48,19 @@ function parseArgs(args: readonly string[]): { from: number; to: number; out: st
   ) {
     throw new Error('--from과 --to는 from <= to인 정수여야 한다')
   }
+  if (!outGiven && (options.from !== 1920 || options.to !== 2028)) {
+    throw new Error(
+      '1920~2028년이 아닌 범위는 --out을 꼭 지정한다. 기본 파일은 전체 범위 표라서 일부만 쓰면 나머지가 사라진다',
+    )
+  }
   return options
 }
+
+const xmlTag = (xml: string, tag: string): string =>
+  new RegExp(`<${tag}>(.*?)</${tag}>`, 's').exec(xml)?.[1] ?? '알 수 없음'
+
+// 다시 해도 같은 결과가 나오는 오류라서 재시도하지 않는다.
+class FatalError extends Error {}
 
 async function fetchYear(year: number): Promise<ApiItem[]> {
   const url = `${ENDPOINT}?solYear=${year}&numOfRows=50&_type=json&ServiceKey=${encodeURIComponent(key)}`
@@ -52,8 +68,19 @@ async function fetchYear(year: number): Promise<ApiItem[]> {
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(20_000) })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const json = (await response.json()) as {
+      if (!response.ok) {
+        const retryable = response.status >= 500 || response.status === 429
+        throw retryable
+          ? new Error(`HTTP ${response.status}`)
+          : new FatalError(`HTTP ${response.status}: 인증키나 요청을 확인한다`)
+      }
+      const text = await response.text()
+      if (text.trimStart().startsWith('<')) {
+        const reason = xmlTag(text, 'returnAuthMsg')
+        const code = xmlTag(text, 'returnReasonCode')
+        throw new FatalError(`인증키나 요청이 거부됐다: ${reason} (코드 ${code})`)
+      }
+      const json = JSON.parse(text) as {
         response?: {
           header?: { resultCode?: string; resultMsg?: string }
           body?: { items?: { item?: ApiItem | ApiItem[] } | '' }
@@ -61,13 +88,14 @@ async function fetchYear(year: number): Promise<ApiItem[]> {
       }
       const header = json.response?.header
       if (header?.resultCode !== '00') {
-        throw new Error(`결과코드 ${header?.resultCode}: ${header?.resultMsg}`)
+        throw new FatalError(`결과코드 ${header?.resultCode}: ${header?.resultMsg}`)
       }
       const items = json.response?.body?.items
       const item = items === '' || items === undefined ? undefined : items.item
       return Array.isArray(item) ? item : item === undefined ? [] : [item]
     } catch (error) {
       lastError = mask(error instanceof Error ? error.message : String(error))
+      if (error instanceof FatalError) throw new Error(`${year}년 조회에 실패했다: ${lastError}`)
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }
   }
@@ -77,10 +105,12 @@ async function fetchYear(year: number): Promise<ApiItem[]> {
 const { from, to, out } = parseArgs(process.argv.slice(2))
 const rows = new Map<number, string[]>()
 const problems: string[] = []
+const adjusted: string[] = []
 
 for (let year = from; year <= to; year++) {
   const result = toYearRow(year, await fetchYear(year))
   problems.push(...result.problems)
+  adjusted.push(...result.adjusted)
   rows.set(year, result.terms)
   await new Promise((resolve) => setTimeout(resolve, 60))
 }
@@ -91,5 +121,5 @@ if (problems.length > 0) {
   process.exit(1)
 }
 
-writeFileSync(out, formatDataFile(rows))
+writeFileSync(out, formatDataFile(rows, adjusted))
 console.log(`${rows.size}개 연도(${from}~${to}), 절기 ${rows.size * 24}개를 ${out}에 썼다`)
