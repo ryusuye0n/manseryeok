@@ -1,4 +1,4 @@
-import type { CivilDateTime } from './civil-date-time'
+import { assertCivilDateTime, type CivilDateTime } from './civil-date-time'
 import { SOLAR_TERM_DATA } from './data/solar-terms.generated'
 import { calculateSolarTermTimes, SOLAR_TERM_CALCULATION_YEARS } from './solar-term-calculation'
 import { SOLAR_TERM_LONGITUDES, SOLAR_TERM_NAMES, type SolarTermName } from './solar-term-names'
@@ -96,20 +96,6 @@ export function getSolarTerms(year: number): SolarTerm[] {
     }
     return { name, longitude, source: 'calculated', ...time }
   })
-}
-
-function assertCivilDateTime(at: CivilDateTime): void {
-  const { year, month, day, hour, minute } = at
-  const integers = [year, month, day, hour, minute].every(Number.isInteger)
-  const date = new Date(Date.UTC(year, month - 1, day))
-  const validDate =
-    integers &&
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  if (!validDate || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    throw new RangeError(`올바른 날짜와 시각이 아니다: ${JSON.stringify(at)}`)
-  }
 }
 
 // 주어진 시각이 속한 절기와 다음 절기를 돌려준다.

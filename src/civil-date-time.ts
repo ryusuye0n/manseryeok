@@ -13,3 +13,17 @@ export interface CivilDateTime {
   hour: number
   minute: number
 }
+
+export function assertCivilDateTime(at: CivilDateTime): void {
+  const { year, month, day, hour, minute } = at
+  const integers = [year, month, day, hour, minute].every(Number.isInteger)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const validDate =
+    integers &&
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  if (!validDate || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new RangeError(`올바른 날짜와 시각이 아니다: ${JSON.stringify(at)}`)
+  }
+}
