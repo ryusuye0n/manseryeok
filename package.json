@@ -24,7 +24,8 @@
     "lint:fix": "biome check --write .",
     "test": "vitest run",
     "check:pr": "node scripts/check-pr.ts",
-    "check:package": "node scripts/check-package.ts"
+    "check:package": "node scripts/check-package.ts",
+    "fetch:solar-terms": "node --env-file-if-exists=.env scripts/fetch-solar-terms.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.9",
