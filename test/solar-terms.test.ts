@@ -1,0 +1,232 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+import { formatDataFile } from '../scripts/solar-term-data'
+import { SOLAR_TERM_DATA } from '../src/data/solar-terms.generated'
+import {
+  type CivilDateTime,
+  getSolarTermPeriod,
+  getSolarTerms,
+  SOLAR_TERM_NAMES,
+  SOLAR_TERM_YEARS,
+} from '../src/index'
+
+const at = (year: number, month: number, day: number, hour = 0, minute = 0): CivilDateTime => ({
+  year,
+  month,
+  day,
+  hour,
+  minute,
+})
+
+const toDays = (time: CivilDateTime): number =>
+  Date.UTC(time.year, time.month - 1, time.day, time.hour, time.minute) / 86_400_000
+
+const allYears: number[] = []
+for (let year = SOLAR_TERM_YEARS.first; year <= SOLAR_TERM_YEARS.last; year++) allYears.push(year)
+
+describe('지원 범위', () => {
+  it('1920년부터 2028년까지다', () => {
+    expect(SOLAR_TERM_YEARS).toEqual({ first: 1920, last: 2028 })
+    expect(allYears).toHaveLength(109)
+  })
+})
+
+describe('표 데이터 무결성', () => {
+  it('생성 파일은 생성기가 만든 모양 그대로다 (손으로 고치지 않았다)', () => {
+    const onDisk = readFileSync('src/data/solar-terms.generated.ts', 'utf8').replaceAll(
+      '\r\n',
+      '\n',
+    )
+    const rows = new Map(
+      Object.entries(SOLAR_TERM_DATA).map(([year, terms]) => [Number(year), terms]),
+    )
+    expect(formatDataFile(rows)).toBe(onDisk)
+  })
+
+  it.each(allYears)('%i년: 24개이고 이름 순서와 태양황경 순서가 맞다', (year) => {
+    const terms = getSolarTerms(year)
+    expect(terms.map((term) => term.name)).toEqual([...SOLAR_TERM_NAMES])
+    expect(terms.map((term) => term.longitude)).toEqual(
+      SOLAR_TERM_NAMES.map((_name, index) => (285 + 15 * index) % 360),
+    )
+  })
+
+  it.each(allYears)('%i년: 모두 그 해 안에 있고 시각이 올바르며 순서대로 늘어난다', (year) => {
+    const terms = getSolarTerms(year)
+    for (const term of terms) {
+      expect(term.year).toBe(year)
+      expect(term.hour).toBeGreaterThanOrEqual(0)
+      expect(term.hour).toBeLessThanOrEqual(23)
+      expect(term.minute).toBeGreaterThanOrEqual(0)
+      expect(term.minute).toBeLessThanOrEqual(59)
+    }
+    for (let index = 1; index < terms.length; index++) {
+      const previous = terms[index - 1]
+      const current = terms[index]
+      expect(previous && current && toDays(current) > toDays(previous)).toBe(true)
+    }
+  })
+
+  // 아래 두 점검은 데이터끼리의 정합성이다. 정답과 일치한다는 증명이 아니라
+  // 시 단위의 오타나 어긋남을 잡는 용도다. 범위는 실제 데이터(14.714~15.735일,
+  // 365.2312~365.2528일)에 여유를 두고 정했다.
+  it('연속한 절기 사이 간격은 14.5~16일이다 (해가 바뀌는 곳 포함)', () => {
+    const all = allYears.flatMap((year) => getSolarTerms(year))
+    for (let index = 1; index < all.length; index++) {
+      const previous = all[index - 1]
+      const current = all[index]
+      if (previous === undefined || current === undefined) throw new Error('데이터가 비어 있다')
+      const gap = toDays(current) - toDays(previous)
+      expect(gap, `${previous.year} ${previous.name} → ${current.name}`).toBeGreaterThan(14.5)
+      expect(gap, `${previous.year} ${previous.name} → ${current.name}`).toBeLessThan(16)
+    }
+  })
+
+  it('같은 절기가 다음 해에 돌아오기까지는 365.22~365.265일이다', () => {
+    for (const year of allYears.slice(0, -1)) {
+      const now = getSolarTerms(year)
+      const next = getSolarTerms(year + 1)
+      for (const [index, term] of now.entries()) {
+        const other = next[index]
+        if (other === undefined) throw new Error('데이터가 비어 있다')
+        const interval = toDays(other) - toDays(term)
+        expect(interval, `${year}년 ${term.name}`).toBeGreaterThan(365.22)
+        expect(interval, `${year}년 ${term.name}`).toBeLessThan(365.265)
+      }
+    }
+  })
+})
+
+describe('알려진 값', () => {
+  // API에서 받은 값을 고정한 확인이다. 값이 바뀌면 데이터가 바뀐 것이다.
+  it.each([
+    [1920, '소한', 1, 6, 23, 41],
+    [1950, '입춘', 2, 4, 18, 21],
+    [2000, '입춘', 2, 4, 21, 40],
+    [2024, '소한', 1, 6, 5, 49],
+    [2024, '대한', 1, 20, 23, 7],
+    [2024, '입춘', 2, 4, 17, 27],
+    [2024, '우수', 2, 19, 13, 13],
+    [2028, '동지', 12, 21, 17, 20],
+  ] as const)('%i년 %s는 %i월 %i일 %i시 %i분이다', (year, name, month, day, hour, minute) => {
+    const term = getSolarTerms(year).find((candidate) => candidate.name === name)
+    expect(term).toMatchObject({ year, month, day, hour, minute })
+  })
+
+  it('원본이 1월 20일 24:00으로 적은 1950년 대한은 1월 21일 00:00으로 저장되어 있다', () => {
+    expect(getSolarTerms(1950)[1]).toMatchObject({
+      name: '대한',
+      month: 1,
+      day: 21,
+      hour: 0,
+      minute: 0,
+    })
+  })
+})
+
+describe('getSolarTerms', () => {
+  it('항상 새 배열을 돌려준다 (바꿔도 표가 달라지지 않는다)', () => {
+    const first = getSolarTerms(2024)
+    first.pop()
+    expect(getSolarTerms(2024)).toHaveLength(24)
+  })
+
+  it.each([1919, 2029, 1800, 2100, 1920.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    '지원하지 않는 연도 %s는 RangeError를 낸다',
+    (year) => {
+      expect(() => getSolarTerms(year)).toThrow(RangeError)
+    },
+  )
+
+  it('오류 메시지에 지원 범위가 들어 있다', () => {
+    expect(() => getSolarTerms(1919)).toThrow('1920~2028')
+  })
+})
+
+describe('getSolarTermPeriod', () => {
+  it('입춘 시각 1분 전에는 대한, 그 순간부터는 입춘이다', () => {
+    const before = getSolarTermPeriod(at(2024, 2, 4, 17, 26))
+    expect([before.current.name, before.next.name]).toEqual(['대한', '입춘'])
+    const exact = getSolarTermPeriod(at(2024, 2, 4, 17, 27))
+    expect([exact.current.name, exact.next.name]).toEqual(['입춘', '우수'])
+    const after = getSolarTermPeriod(at(2024, 2, 4, 17, 28))
+    expect([after.current.name, after.next.name]).toEqual(['입춘', '우수'])
+  })
+
+  it('소한 시각 전후로 구간이 바뀐다 (이전 해의 동지와 이어진다)', () => {
+    const before = getSolarTermPeriod(at(2024, 1, 6, 5, 48))
+    expect([before.current.name, before.current.year, before.next.name]).toEqual([
+      '동지',
+      2023,
+      '소한',
+    ])
+    const exact = getSolarTermPeriod(at(2024, 1, 6, 5, 49))
+    expect([exact.current.name, exact.next.name]).toEqual(['소한', '대한'])
+  })
+
+  it('해가 바뀌는 날에도 동지와 소한 사이로 판정한다', () => {
+    for (const time of [at(2023, 12, 31, 23, 59), at(2024, 1, 1, 0, 0)]) {
+      const period = getSolarTermPeriod(time)
+      expect([period.current.name, period.current.year]).toEqual(['동지', 2023])
+      expect([period.next.name, period.next.year]).toEqual(['소한', 2024])
+    }
+  })
+
+  it('원본이 24:00으로 적었던 1950년 대한은 1월 21일 00:00부터 시작한다', () => {
+    const before = getSolarTermPeriod(at(1950, 1, 20, 23, 59))
+    expect([before.current.name, before.next.name]).toEqual(['소한', '대한'])
+    const exact = getSolarTermPeriod(at(1950, 1, 21, 0, 0))
+    expect([exact.current.name, exact.next.name]).toEqual(['대한', '입춘'])
+  })
+
+  it('윤일에도 동작한다', () => {
+    const period = getSolarTermPeriod(at(2024, 2, 29, 12, 0))
+    expect([period.current.name, period.next.name]).toEqual(['우수', '경칩'])
+  })
+
+  it('절기 정보(이름, 태양황경, 시각)를 담아 돌려준다', () => {
+    expect(getSolarTermPeriod(at(2024, 3, 1)).current).toEqual({
+      name: '우수',
+      longitude: 330,
+      year: 2024,
+      month: 2,
+      day: 19,
+      hour: 13,
+      minute: 13,
+    })
+  })
+
+  describe('표의 처음과 끝', () => {
+    it('첫 소한 시각부터는 조회되고, 1분 전은 RangeError다', () => {
+      const first = getSolarTermPeriod(at(1920, 1, 6, 23, 41))
+      expect([first.current.name, first.next.name]).toEqual(['소한', '대한'])
+      expect(() => getSolarTermPeriod(at(1920, 1, 6, 23, 40))).toThrow(RangeError)
+      expect(() => getSolarTermPeriod(at(1920, 1, 1))).toThrow(RangeError)
+      expect(() => getSolarTermPeriod(at(1919, 12, 31, 23, 59))).toThrow(RangeError)
+    })
+
+    it('마지막 동지 직전까지는 조회되고, 그 시각부터는 RangeError다', () => {
+      const last = getSolarTermPeriod(at(2028, 12, 21, 17, 19))
+      expect([last.current.name, last.next.name]).toEqual(['대설', '동지'])
+      expect(() => getSolarTermPeriod(at(2028, 12, 21, 17, 20))).toThrow(RangeError)
+      expect(() => getSolarTermPeriod(at(2029, 1, 1))).toThrow(RangeError)
+      expect(() => getSolarTermPeriod(at(2100, 6, 1))).toThrow(RangeError)
+    })
+  })
+
+  describe('잘못된 입력', () => {
+    it.each([
+      ['13월', at(2024, 13, 1)],
+      ['0월', at(2024, 0, 1)],
+      ['2월 30일', at(2024, 2, 30)],
+      ['평년 2월 29일', at(2023, 2, 29)],
+      ['24시', at(2024, 2, 4, 24, 0)],
+      ['60분', at(2024, 2, 4, 12, 60)],
+      ['음수 시', at(2024, 2, 4, -1, 0)],
+      ['소수 분', at(2024, 2, 4, 12, 1.5)],
+      ['NaN 연도', at(Number.NaN, 2, 4)],
+    ])('%s는 RangeError를 낸다', (_name, time) => {
+      expect(() => getSolarTermPeriod(time)).toThrow(RangeError)
+    })
+  })
+})
