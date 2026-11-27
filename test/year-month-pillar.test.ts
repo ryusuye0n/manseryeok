@@ -224,15 +224,18 @@ describe('월주: 월지와 월간', () => {
 })
 
 describe('월주: 절기 경계', () => {
-  it('절기 시각 1분 전과 그 순간이 달라지는 것은 12절뿐이다 (1920~2028년 모든 절기)', () => {
-    for (let y = 1920; y <= 2028; y++) {
+  it('절기 시각 1분 전과 그 순간이 달라지는 것은 12절뿐이다 (1900~2150년 모든 절기, 표 구간과 계산 구간 모두)', () => {
+    for (let y = SOLAR_TERM_SUPPORTED_YEARS.first; y <= SOLAR_TERM_SUPPORTED_YEARS.last; y++) {
       for (const term of getSolarTerms(y)) {
         const index = SOLAR_TERM_NAMES.indexOf(term.name)
+        // 1900년 첫 소한은 그 전 절기를 몰라서 월주를 구할 수 없다
+        if (y === SOLAR_TERM_SUPPORTED_YEARS.first && index === 0) continue
         const before = getMonthPillar(oneMinuteBefore(term))
         const after = getMonthPillar(term)
         const isJie = index % 2 === 0
         if (isJie) {
-          // 월지가 한 칸 나아가고, 월간도 한 칸 나아간다 (입춘 때는 연간이 바뀌어 건너뛴다)
+          // 월지가 한 칸 나아가고, 월간도 한 칸 나아간다. 입춘 때도 연간은 바뀌지만
+          // 오호둔 때문에 월주는 끊기지 않고 (을축 -> 병인처럼) 한 칸 나아간다.
           expect(after.branch, `${y} ${term.name}`).not.toBe(before.branch)
           expect(after.index, `${y} ${term.name}`).toBe((before.index + 1) % 60)
         } else {
@@ -250,16 +253,6 @@ describe('월주: 절기 경계', () => {
   it('소한 순간에는 자월에서 축월로 바뀐다 (2024-01-06 05:49)', () => {
     expect(month(at(2024, 1, 6, 5, 48))).toBe('갑자')
     expect(month(at(2024, 1, 6, 5, 49))).toBe('을축')
-  })
-
-  it('표 밖의 계산값 구간도 같은 규칙으로 바뀐다 (2029~2150년)', () => {
-    for (const y of [2029, 2060, 2100, 2150]) {
-      for (const term of getSolarTerms(y)) {
-        if (term.name !== '입춘' && SOLAR_TERM_NAMES.indexOf(term.name) % 2 === 0) {
-          expect(getMonthPillar(term).branch).not.toBe(getMonthPillar(oneMinuteBefore(term)).branch)
-        }
-      }
-    }
   })
 })
 
