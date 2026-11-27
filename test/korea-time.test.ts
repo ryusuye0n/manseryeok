@@ -126,6 +126,23 @@ describe('toKoreaStandardTime: 존재하지 않는 시각과 겹치는 시각', 
 })
 
 describe('toKoreaStandardTime: 잘못된 입력', () => {
+  it.each(['Later', 'latest', '', 'EARLIER', 1, true])(
+    'options.ambiguous가 %j이면 RangeError다 (조용히 반대쪽을 고르지 않는다)',
+    (value) => {
+      const options = { ambiguous: value } as unknown as { ambiguous: 'later' }
+      expect(() => toKoreaStandardTime(at(1948, 9, 12, 23, 30), options)).toThrow(RangeError)
+    },
+  )
+
+  it('options가 없거나 null이거나 빈 객체여도 기본값(먼저 온 쪽)으로 동작한다', () => {
+    const wall = at(1948, 9, 12, 23, 30)
+    const expected = toKoreaStandardTime(wall, { ambiguous: 'earlier' }).time
+    expect(toKoreaStandardTime(wall).time).toEqual(expected)
+    expect(toKoreaStandardTime(wall, {}).time).toEqual(expected)
+    expect(toKoreaStandardTime(wall, null as unknown as undefined).time).toEqual(expected)
+    expect(toKoreaStandardTime(wall, { ambiguous: undefined }).time).toEqual(expected)
+  })
+
   it('지원 범위는 1900~2150년이다', () => {
     expect(KOREA_TIME_YEARS).toEqual({ first: 1900, last: 2150 })
     expect(() => toKoreaStandardTime(at(1899, 12, 31, 23, 59))).toThrow('1900~2150')

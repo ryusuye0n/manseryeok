@@ -79,8 +79,14 @@ export interface KoreaTimeOptions {
 // - 1900~2150년만 지원한다. 1988년 이후는 UTC+9로 본다.
 export function toKoreaStandardTime(
   wall: CivilDateTime,
-  options: KoreaTimeOptions = {},
+  options?: KoreaTimeOptions,
 ): KoreaStandardTime {
+  const ambiguous = options?.ambiguous
+  if (ambiguous !== undefined && ambiguous !== 'earlier' && ambiguous !== 'later') {
+    throw new RangeError(
+      `options.ambiguous는 'earlier' 또는 'later'여야 한다: ${JSON.stringify(ambiguous)}`,
+    )
+  }
   assertCivilDateTime(wall)
   if (wall.year < KOREA_TIME_YEARS.first || wall.year > KOREA_TIME_YEARS.last) {
     throw new RangeError(
@@ -105,7 +111,7 @@ export function toKoreaStandardTime(
       `시계가 건너뛰어 존재하지 않았던 시각이다: ${wall.year}-${wall.month}-${wall.day} ${wall.hour}:${wall.minute}`,
     )
   }
-  const instant = options.ambiguous === 'later' ? later : earlier
+  const instant = ambiguous === 'later' ? later : earlier
   const standard = new Date(Math.round((instant + STANDARD_OFFSET_MS) / 60_000) * 60_000)
   return {
     time: {
