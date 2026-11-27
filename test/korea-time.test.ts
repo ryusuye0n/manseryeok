@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import {
   type CivilDateTime,
   getSolarTermPeriod,
@@ -206,24 +206,27 @@ describe('Node의 시간대 데이터(Asia/Seoul)와 비교', () => {
     )
   }
 
-  // 하루 간격으로 훑어서 오프셋이 바뀐 순간을 찾는다
-  const transitions: number[] = []
+  // 하루 간격으로 훑어서 오프셋이 바뀐 순간을 찾는다. 무거워서 테스트를 실행할 때만 한다.
   const start = Date.UTC(1900, 0, 1)
   const end = Date.UTC(2030, 0, 1)
-  let previous = offsetSeconds(start)
-  for (let ms = start + 86_400_000; ms < end; ms += 86_400_000) {
-    const current = offsetSeconds(ms)
-    if (current === previous) continue
-    let low = ms - 86_400_000
-    let high = ms
-    while (high - low > 1000) {
-      const middle = Math.floor((low + high) / 2)
-      if (offsetSeconds(middle) === previous) low = middle
-      else high = middle
+  let transitions: number[] = []
+  beforeAll(() => {
+    transitions = []
+    let previous = offsetSeconds(start)
+    for (let ms = start + 86_400_000; ms < end; ms += 86_400_000) {
+      const current = offsetSeconds(ms)
+      if (current === previous) continue
+      let low = ms - 86_400_000
+      let high = ms
+      while (high - low > 1000) {
+        const middle = Math.floor((low + high) / 2)
+        if (offsetSeconds(middle) === previous) low = middle
+        else high = middle
+      }
+      transitions.push(high)
+      previous = current
     }
-    transitions.push(high)
-    previous = current
-  }
+  }, 30_000)
 
   it('전환이 28번이다 (1900~2030년)', () => {
     expect(transitions).toHaveLength(28)
