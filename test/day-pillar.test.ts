@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { dayIndexOfDate } from '../src/day-pillar'
 import {
   type CivilDateTime,
   DAY_PILLAR_YEARS,
@@ -241,5 +242,54 @@ describe('getDayPillar: 잘못된 입력', () => {
     expect(() => {
       ;(DAY_PILLAR_YEARS as { first: number }).first = 1800
     }).toThrow(TypeError)
+  })
+})
+
+describe('dayIndexOfDate: 연도 범위 검사 없이 어떤 연도에서도 맞다', () => {
+  // 독립 계산: 그레고리력의 율리우스 일수(JDN) 공식(Fliegel & Van Flandern)으로 구한 60갑자 순서.
+  // 0갑자일 = (JDN + 49) % 60 이다. 2000-01-01(JDN 2451545)이 무오일(54)이라는 값과 같은 기준이다.
+  const julianDayNumber = (year: number, month: number, day: number): number => {
+    const a = Math.floor((14 - month) / 12)
+    const y = year + 4800 - a
+    const m = month + 12 * a - 3
+    return (
+      day +
+      Math.floor((153 * m + 2) / 5) +
+      365 * y +
+      Math.floor(y / 4) -
+      Math.floor(y / 100) +
+      Math.floor(y / 400) -
+      32045
+    )
+  }
+
+  it.each([
+    [1, 1, 1],
+    [50, 1, 1],
+    [99, 12, 31],
+    [100, 1, 1],
+    [1582, 10, 15],
+    [1900, 1, 1],
+    [2000, 1, 1],
+    [2150, 12, 31],
+    [2400, 2, 29],
+  ])('%i-%i-%i의 순서가 JDN 공식과 같다', (year, month, day) => {
+    expect(dayIndexOfDate(year, month, day)).toBe((julianDayNumber(year, month, day) + 49) % 60)
+  })
+
+  it('0~99년을 1900~1999년으로 바꾸지 않는다 (0~99년의 1월 1일과 7월 1일을 모두 JDN 공식과 비교)', () => {
+    for (let year = 0; year <= 99; year++) {
+      for (const month of [1, 7]) {
+        expect(dayIndexOfDate(year, month, 1), `${year}-${month}-1`).toBe(
+          (julianDayNumber(year, month, 1) + 49) % 60,
+        )
+      }
+    }
+    expect(dayIndexOfDate(50, 1, 2)).toBe((dayIndexOfDate(50, 1, 1) + 1) % 60)
+  })
+
+  it('달의 끝을 넘는 day는 다음 달로 넘어간다', () => {
+    expect(dayIndexOfDate(2024, 2, 30)).toBe(dayIndexOfDate(2024, 3, 1))
+    expect(dayIndexOfDate(2023, 12, 32)).toBe(dayIndexOfDate(2024, 1, 1))
   })
 })

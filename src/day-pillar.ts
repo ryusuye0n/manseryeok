@@ -14,6 +14,15 @@ export const DAY_PILLAR_YEARS: { readonly first: number; readonly last: number }
   last: 2150,
 })
 
+// 날짜(그레고리력)의 60갑자 순서. 범위 검사는 하지 않는다. day가 달의 끝을 넘으면 다음 달로 넘어간다.
+// 연도는 그대로 쓴다 (Date.UTC는 0~99년을 1900~1999년으로 바꾸므로 setUTCFullYear로 계산한다).
+export function dayIndexOfDate(year: number, month: number, day: number): number {
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day)
+  const days = date.getTime() / 86_400_000
+  return (((REFERENCE_INDEX + (days - REFERENCE_DAY)) % 60) + 60) % 60
+}
+
 export interface DayPillarOptions {
   // 날짜가 바뀌는 시각. 자시(23:00~01:00)를 어느 날로 볼지를 정한다.
   // - '00:00'(기본값): 자정에 바뀐다. 23:00~24:00도 그날이다 (야자시를 인정하는 쪽).
@@ -36,6 +45,5 @@ export function getDayPillar(at: CivilDateTime, options?: DayPillarOptions): Pil
     )
   }
   const extraDay = dayChangeAt === '23:00' && at.hour >= 23 ? 1 : 0
-  const day = Date.UTC(at.year, at.month - 1, at.day + extraDay) / 86_400_000
-  return pillarFromIndex(REFERENCE_INDEX + (day - REFERENCE_DAY))
+  return pillarFromIndex(dayIndexOfDate(at.year, at.month, at.day + extraDay))
 }
