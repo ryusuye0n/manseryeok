@@ -1,4 +1,4 @@
-import type { CivilDateTime } from './civil-date-time'
+import { assertCivilDateTime, type CivilDateTime } from './civil-date-time'
 import { SOLAR_TERM_DATA } from './data/solar-terms.generated'
 import { calculateSolarTermTimes, SOLAR_TERM_CALCULATION_YEARS } from './solar-term-calculation'
 import { SOLAR_TERM_LONGITUDES, SOLAR_TERM_NAMES, type SolarTermName } from './solar-term-names'
@@ -98,23 +98,9 @@ export function getSolarTerms(year: number): SolarTerm[] {
   })
 }
 
-function assertCivilDateTime(at: CivilDateTime): void {
-  const { year, month, day, hour, minute } = at
-  const integers = [year, month, day, hour, minute].every(Number.isInteger)
-  const date = new Date(Date.UTC(year, month - 1, day))
-  const validDate =
-    integers &&
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  if (!validDate || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    throw new RangeError(`올바른 날짜와 시각이 아니다: ${JSON.stringify(at)}`)
-  }
-}
-
 // 주어진 시각이 속한 절기와 다음 절기를 돌려준다.
 // 입력은 서머타임을 뺀 UTC+9 표준시여야 한다. 벽시계 시각을 그대로 넣으면 서머타임과
-// UTC+8:30 시기에 절기 경계 근처에서 틀린 절기가 나온다. (CivilDateTime 설명 참고)
+// UTC+8:30 시기에 절기 경계 근처에서 틀린 절기가 나온다. (toKoreaStandardTime으로 바꾼 뒤 넣는다. CivilDateTime 설명 참고)
 // 앞뒤 절기를 알 수 없으면(1900년 첫 소한 전, 2150년 마지막 동지 이후) RangeError를 낸다.
 export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
   assertCivilDateTime(at)
