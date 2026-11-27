@@ -1,4 +1,8 @@
 export type { CivilDateTime } from './civil-date-time'
+export type { DayPillarOptions } from './day-pillar'
+export { DAY_PILLAR_YEARS, getDayPillar } from './day-pillar'
+export type { EarthlyBranch, HeavenlyStem, Pillar } from './ganzhi'
+export { EARTHLY_BRANCHES, HEAVENLY_STEMS } from './ganzhi'
 export type { KoreaStandardTime, KoreaTimeOptions } from './korea-time'
 export { KOREA_TIME_YEARS, toKoreaStandardTime } from './korea-time'
 export type { SolarTermName } from './solar-term-names'
