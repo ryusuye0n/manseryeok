@@ -74,6 +74,7 @@ export interface KoreaTimeOptions {
 
 // 한국에서 사람들이 쓰던 벽시계 시각을 UTC+9 표준시로 바꾼다.
 // - 시계가 건너뛰어 존재하지 않았던 시각(예: 1948-06-01 00:30)은 RangeError다.
+//   다만 그 분 안에 존재하는 초가 있으면(1908-04-01 00:02) 그 순간을 쓴다.
 // - 시계가 되감겨 같은 시각이 두 번 있었던 경우는 ambiguous: true로 알리고 options.ambiguous를 따른다.
 // - 1900~2150년만 지원한다. 1988년 이후는 UTC+9로 본다.
 export function toKoreaStandardTime(
@@ -87,12 +88,16 @@ export function toKoreaStandardTime(
     )
   }
   const wallAsUtc = Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute)
-  const instants: number[] = []
-  for (const [index, segment] of SEGMENTS.entries()) {
-    const instant = wallAsUtc - segment.offsetSeconds * 1000
-    const end = SEGMENTS[index + 1]?.from ?? Number.POSITIVE_INFINITY
-    if (instant >= segment.from && instant < end) instants.push(instant)
-  }
+  const instantsAt = (wallMs: number): number[] =>
+    SEGMENTS.flatMap((segment, index) => {
+      const instant = wallMs - segment.offsetSeconds * 1000
+      const end = SEGMENTS[index + 1]?.from ?? Number.POSITIVE_INFINITY
+      return instant >= segment.from && instant < end ? [instant] : []
+    })
+  // 분 단위 입력은 초가 0이라고 보고 먼저 찾는다. 1908-04-01 00:02처럼 건너뛴 구간이
+  // 분의 앞쪽 몇 초뿐이라면(00:00:00~00:02:07) 그 분의 끝(59초)에 존재하는 순간으로 대신한다.
+  let instants = instantsAt(wallAsUtc)
+  if (instants.length === 0) instants = instantsAt(wallAsUtc + 59_000)
   const earlier = instants[0]
   const later = instants[instants.length - 1]
   if (earlier === undefined || later === undefined) {

@@ -78,6 +78,14 @@ describe('toKoreaStandardTime: 존재하지 않는 시각과 겹치는 시각', 
     expect(() => toKoreaStandardTime(wall)).toThrow(RangeError)
   })
 
+  it('지방평균시에서 건너뛴 구간이 분의 앞쪽 몇 초뿐이면 존재하는 순간으로 바꾼다 (1908-04-01 00:02)', () => {
+    // 00:00:00~00:02:07은 건너뛰었고 00:02:08부터는 있었다
+    expect(standard(at(1908, 4, 1, 0, 2))).toBe('1908-04-01 00:33')
+    expect(toKoreaStandardTime(at(1908, 4, 1, 0, 2)).ambiguous).toBe(false)
+    expect(() => toKoreaStandardTime(at(1908, 4, 1, 0, 1))).toThrow(RangeError)
+    expect(standard(at(1908, 4, 1, 0, 3))).toBe('1908-04-01 00:33')
+  })
+
   it('서머타임이 끝나며 같은 시각이 두 번 있으면 ambiguous로 알리고 먼저/나중 쪽을 고를 수 있다', () => {
     // 1948-09-12 23:30은 서머타임(UTC+10) 때와 끝난 뒤(UTC+9) 두 번 있었다
     const wall = at(1948, 9, 12, 23, 30)
