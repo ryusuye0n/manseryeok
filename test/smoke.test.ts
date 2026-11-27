@@ -12,8 +12,10 @@ describe('진입점', () => {
       'SOLAR_TERM_SUPPORTED_YEARS',
       'SOLAR_TERM_YEARS',
       'getDayPillar',
+      'getMonthPillar',
       'getSolarTermPeriod',
       'getSolarTerms',
+      'getYearPillar',
       'toKoreaStandardTime',
     ])
   })
