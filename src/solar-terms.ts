@@ -94,11 +94,8 @@ export function getSolarTerms(year: number): SolarTerm[] {
   })
 }
 
-// 주어진 시각이 속한 절기와 다음 절기를 돌려준다.
-// 입력은 서머타임을 뺀 UTC+9 표준시여야 한다. 벽시계 시각을 그대로 넣으면 서머타임과
-// UTC+8:30 시기에 절기 경계 근처에서 틀린 절기가 나온다. (toKoreaStandardTime으로 바꾼 뒤 넣는다. CivilDateTime 설명 참고)
-// 앞뒤 절기를 알 수 없으면(1900년 첫 소한 전, 2150년 마지막 동지 이후) RangeError를 낸다.
-export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
+// 시각 앞뒤의 절기를 찾는다. 표나 계산으로 알 수 없는 쪽은 undefined다.
+function locate(at: CivilDateTime): { current?: SolarTerm; next?: SolarTerm } {
   assertCivilDateTime(at)
   if (!isSupportedYear(at.year)) {
     throw new RangeError(
@@ -112,6 +109,26 @@ export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
   const nextIndex = around.findIndex((term) => toKey(term) > key)
   const next = nextIndex === -1 ? undefined : around[nextIndex]
   const current = nextIndex === -1 ? around[around.length - 1] : around[nextIndex - 1]
+  return { current, next }
+}
+
+// 주어진 시각이 속한 절기를 돌려준다. 다음 절기가 필요 없어서 2150년 마지막 동지 이후에도 조회된다.
+// 입력은 서머타임을 뺀 UTC+9 표준시여야 한다. (toKoreaStandardTime으로 바꾼 뒤 넣는다.)
+// 1900년 첫 소한 전이면 RangeError를 낸다.
+export function getCurrentSolarTerm(at: CivilDateTime): SolarTerm {
+  const { current } = locate(at)
+  if (current === undefined) {
+    throw new RangeError(`절기 구간을 알 수 없는 시각이다 (지원 범위 밖): ${format(at)}`)
+  }
+  return current
+}
+
+// 주어진 시각이 속한 절기와 다음 절기를 돌려준다.
+// 입력은 서머타임을 뺀 UTC+9 표준시여야 한다. 벽시계 시각을 그대로 넣으면 서머타임과
+// UTC+8:30 시기에 절기 경계 근처에서 틀린 절기가 나온다. (toKoreaStandardTime으로 바꾼 뒤 넣는다. CivilDateTime 설명 참고)
+// 앞뒤 절기를 알 수 없으면(1900년 첫 소한 전, 2150년 마지막 동지 이후) RangeError를 낸다.
+export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
+  const { current, next } = locate(at)
   if (current === undefined || next === undefined) {
     throw new RangeError(`절기 구간을 알 수 없는 시각이다 (지원 범위 밖): ${format(at)}`)
   }
