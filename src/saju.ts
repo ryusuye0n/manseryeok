@@ -9,7 +9,7 @@ import { assertCivilDateTime, type CivilDateTime } from './civil-date-time'
 import { getDayPillar } from './day-pillar'
 import type { Pillar } from './ganzhi'
 import { getHourPillar } from './hour-pillar'
-import { toKoreaStandardTime } from './korea-time'
+import { KOREA_TIME_YEARS, toKoreaStandardTime } from './korea-time'
 import { getMonthPillar } from './month-pillar'
 import { SOLAR_TERM_NAMES, type SolarTermName } from './solar-term-names'
 import { getSolarTerms, SOLAR_TERM_SUPPORTED_YEARS, type SolarTerm } from './solar-terms'
@@ -56,6 +56,8 @@ export type SajuWarning =
       // 출생 시각을 모르는데 그날 안에 연주나 월주를 바꾸는 절기가 있다. 시각에 따라 달라진다.
       type: 'solar-term-on-day'
       term: SolarTermName
+      // 절기 시각. 한국천문연구원 표와 같은 UTC+9 표준시다 (벽시계 시각이 아니다).
+      // 서머타임이나 UTC+8:30 시기에는 벽시계보다 30분~1시간 앞서거나 뒤처진다.
       time: CivilDateTime
       affects: SajuPillarName[]
     }
@@ -90,15 +92,34 @@ const isJie = (term: SolarTerm): boolean => SOLAR_TERM_NAMES.indexOf(term.name) 
 const affectedBy = (term: SolarTerm): SajuPillarName[] =>
   term.name === '입춘' ? ['year', 'month'] : ['month']
 
-function jieTermsAround(year: number): SolarTerm[] {
-  return [year - 1, year, year + 1]
-    .filter(
-      (candidate) =>
-        candidate >= SOLAR_TERM_SUPPORTED_YEARS.first &&
-        candidate <= SOLAR_TERM_SUPPORTED_YEARS.last,
-    )
-    .flatMap((candidate) => getSolarTerms(candidate))
-    .filter(isJie)
+// 한 해의 12절. 지원하지 않는 해면 빈 배열이다.
+function jieTermsOf(year: number): SolarTerm[] {
+  if (year < SOLAR_TERM_SUPPORTED_YEARS.first || year > SOLAR_TERM_SUPPORTED_YEARS.last) return []
+  return getSolarTerms(year).filter(isJie)
+}
+
+// 벽시계로 그날 00:00을 표준시로 바꾼 순간(밀리초). 시계가 건너뛰어 00:00이 없던 날
+// (1948-06-01처럼 00:00~01:00이 없던 날)은 그날 처음 존재하는 시각이다.
+// 지원 범위(2150년) 다음 날이면 끝이 없는 것으로 본다.
+function startOfWallDayMs(year: number, month: number, day: number): number {
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (date.getUTCFullYear() > KOREA_TIME_YEARS.last) return Number.POSITIVE_INFINITY
+  for (let minutes = 0; minutes < 180; minutes++) {
+    try {
+      return toMs(
+        toKoreaStandardTime({
+          year: date.getUTCFullYear(),
+          month: date.getUTCMonth() + 1,
+          day: date.getUTCDate(),
+          hour: Math.floor(minutes / 60),
+          minute: minutes % 60,
+        }).time,
+      )
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error
+    }
+  }
+  throw new RangeError(`그날 시계의 첫 시각을 찾을 수 없다: ${year}-${month}-${day}`)
 }
 
 function assertOptions(options: SajuOptions | undefined): void {
@@ -127,29 +148,44 @@ export function getSaju(birth: BirthInput, options?: SajuOptions): Saju {
   const warnings: SajuWarning[] = []
 
   if (hour === undefined || minute === undefined) {
-    // 시각을 모르면 그날 정오로 보고 연주, 월주, 일주만 구한다
-    const noon: CivilDateTime = { year, month, day, hour: 12, minute: 0 }
-    assertCivilDateTime(noon)
+    // 시각을 모르면 벽시계로 그날 정오를 표준시로 바꿔서 연주, 월주, 일주만 구한다
+    const wallNoon: CivilDateTime = { year, month, day, hour: 12, minute: 0 }
+    assertCivilDateTime(wallNoon)
+    const noon = toKoreaStandardTime(wallNoon).time
     const pillars: FourPillars = {
       year: getYearPillar(noon),
       month: getMonthPillar(noon),
       day: getDayPillar(noon, { dayChangeAt }),
       hour: null,
     }
-    for (const term of jieTermsAround(year)) {
-      if (term.year === year && term.month === month && term.day === day) {
-        warnings.push({
-          type: 'solar-term-on-day',
-          term: term.name,
-          time: {
-            year: term.year,
-            month: term.month,
-            day: term.day,
-            hour: term.hour,
-            minute: term.minute,
-          },
-          affects: affectedBy(term),
-        })
+    // 벽시계로 그날 하루(00:00 이상 다음 날 00:00 미만)를 표준시 구간으로 바꿔서, 그 안에 든 12절을 찾는다.
+    // 서머타임이나 UTC+8:30 시기에는 표준시 날짜와 벽시계 날짜가 어긋날 수 있다.
+    const nextDay = new Date(Date.UTC(year, month - 1, day + 1))
+    const startMs = startOfWallDayMs(year, month, day)
+    const endMs = startOfWallDayMs(
+      nextDay.getUTCFullYear(),
+      nextDay.getUTCMonth() + 1,
+      nextDay.getUTCDate(),
+    )
+    const years = new Set([new Date(startMs).getUTCFullYear()])
+    if (Number.isFinite(endMs)) years.add(new Date(endMs).getUTCFullYear())
+    for (const termYear of years) {
+      for (const term of jieTermsOf(termYear)) {
+        const termMs = toMs(term)
+        if (termMs >= startMs && termMs < endMs) {
+          warnings.push({
+            type: 'solar-term-on-day',
+            term: term.name,
+            time: {
+              year: term.year,
+              month: term.month,
+              day: term.day,
+              hour: term.hour,
+              minute: term.minute,
+            },
+            affects: affectedBy(term),
+          })
+        }
       }
     }
     return { pillars, standardTime: null, warnings }
@@ -172,7 +208,7 @@ export function getSaju(birth: BirthInput, options?: SajuOptions): Saju {
 
   const at = toMs(standard)
   let nearest: { term: SolarTerm; minutes: number } | undefined
-  for (const term of jieTermsAround(standard.year)) {
+  for (const term of jieTermsOf(standard.year)) {
     const minutes = (at - toMs(term)) / 60_000
     if (nearest === undefined || Math.abs(minutes) < Math.abs(nearest.minutes)) {
       nearest = { term, minutes }
