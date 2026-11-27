@@ -1,4 +1,4 @@
-import { assertCivilDateTime, type CivilDateTime } from './civil-date-time'
+import { assertCivilDateTime, type CivilDateTime, toKey } from './civil-date-time'
 import { SOLAR_TERM_DATA } from './data/solar-terms.generated'
 import { calculateSolarTermTimes, SOLAR_TERM_CALCULATION_YEARS } from './solar-term-calculation'
 import { SOLAR_TERM_LONGITUDES, SOLAR_TERM_NAMES, type SolarTermName } from './solar-term-names'
@@ -42,10 +42,6 @@ const pad = (value: number): string => String(value).padStart(2, '0')
 
 const format = (at: CivilDateTime): string =>
   `${at.year}-${pad(at.month)}-${pad(at.day)} ${pad(at.hour)}:${pad(at.minute)}`
-
-// 시각 순서를 비교하려고 yyyymmddhhmm 숫자로 바꾼다.
-const toKey = (at: CivilDateTime): number =>
-  (((at.year * 100 + at.month) * 100 + at.day) * 100 + at.hour) * 100 + at.minute
 
 function parseTerm(year: number, index: number, text: string): SolarTerm {
   const name = SOLAR_TERM_NAMES[index]
@@ -104,6 +100,11 @@ export function getSolarTerms(year: number): SolarTerm[] {
 // 앞뒤 절기를 알 수 없으면(1900년 첫 소한 전, 2150년 마지막 동지 이후) RangeError를 낸다.
 export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
   assertCivilDateTime(at)
+  if (!isSupportedYear(at.year)) {
+    throw new RangeError(
+      `지원하는 연도는 ${SOLAR_TERM_SUPPORTED_YEARS.first}~${SOLAR_TERM_SUPPORTED_YEARS.last}년이다: ${at.year}`,
+    )
+  }
   const around = [at.year - 1, at.year, at.year + 1].flatMap((year) =>
     isSupportedYear(year) ? getSolarTerms(year) : [],
   )

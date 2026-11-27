@@ -28,3 +28,7 @@ export function assertCivilDateTime(at: CivilDateTime): void {
     throw new RangeError(`올바른 날짜와 시각이 아니다: ${JSON.stringify(at)}`)
   }
 }
+
+// 시각 순서를 비교하려고 yyyymmddhhmm 숫자로 바꾼다.
+export const toKey = (at: CivilDateTime): number =>
+  (((at.year * 100 + at.month) * 100 + at.day) * 100 + at.hour) * 100 + at.minute
