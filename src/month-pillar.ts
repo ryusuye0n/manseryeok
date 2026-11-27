@@ -8,12 +8,11 @@
 //   정/임년 임인월부터, 무/계년 갑인월부터 시작해 달마다 천간이 하나씩 간다.
 
 import type { CivilDateTime } from './civil-date-time'
-import { type Pillar, pillarFromIndex, pillarFromStemBranch } from './ganzhi'
+import { type Pillar, pillarFromStemBranch } from './ganzhi'
 import { SOLAR_TERM_NAMES } from './solar-term-names'
 import { getCurrentSolarTerm } from './solar-terms'
-import { getSajuYear } from './year-pillar'
+import { getYearPillar } from './year-pillar'
 
-const FIRST_GAPJA_YEAR = 4
 const TIGER_BRANCH_INDEX = 2 // 인(寅)
 
 // 시각이 속한 달의 월주를 돌려준다. 입력은 서머타임을 뺀 UTC+9 표준시다 (toKoreaStandardTime 참고).
@@ -28,7 +27,7 @@ export function getMonthPillar(at: CivilDateTime): Pillar {
   const branchIndex = (jieIndex / 2 + 1) % 12
   // 인월을 0으로 센 몇 번째 달인지
   const monthNumber = (branchIndex - TIGER_BRANCH_INDEX + 12) % 12
-  const yearStem = pillarFromIndex(getSajuYear(at) - FIRST_GAPJA_YEAR).index % 10
+  const yearStem = getYearPillar(at).index % 10
   const tigerMonthStem = ((yearStem % 5) * 2 + 2) % 10
   return pillarFromStemBranch((tigerMonthStem + monthNumber) % 10, branchIndex)
 }

@@ -9,7 +9,7 @@ const FIRST_GAPJA_YEAR = 4
 
 // 입춘을 기준으로 한 사주상의 해. 입춘 시각 전이면 전해다.
 // 입춘 시각이 되는 순간부터(그 분 포함) 새해다.
-export function getSajuYear(at: CivilDateTime): number {
+function getSajuYear(at: CivilDateTime): number {
   assertCivilDateTime(at)
   if (at.year < SOLAR_TERM_SUPPORTED_YEARS.first || at.year > SOLAR_TERM_SUPPORTED_YEARS.last) {
     throw new RangeError(
