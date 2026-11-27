@@ -14,6 +14,7 @@ describe('진입점', () => {
       'getDayPillar',
       'getHourPillar',
       'getMonthPillar',
+      'getSaju',
       'getSolarTermPeriod',
       'getSolarTerms',
       'getYearPillar',
