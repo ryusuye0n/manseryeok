@@ -13,16 +13,15 @@
 // 출생지의 경도에 따른 진태양시 보정은 하지 않는다. 입력 시각(한국 표준시)으로 그대로 정한다.
 
 import { assertCivilDateTime, type CivilDateTime } from './civil-date-time'
-import { dayIndexOfDate } from './day-pillar'
+import { DAY_PILLAR_YEARS, dayIndexOfDate } from './day-pillar'
 import { type Pillar, pillarFromStemBranch } from './ganzhi'
-import { SOLAR_LONGITUDE_YEARS } from './solar-longitude'
 
 // 시각의 시주를 돌려준다. 입력은 서머타임을 뺀 UTC+9 표준시다 (toKoreaStandardTime 참고).
 export function getHourPillar(at: CivilDateTime): Pillar {
   assertCivilDateTime(at)
-  if (at.year < SOLAR_LONGITUDE_YEARS.first || at.year > SOLAR_LONGITUDE_YEARS.last) {
+  if (at.year < DAY_PILLAR_YEARS.first || at.year > DAY_PILLAR_YEARS.last) {
     throw new RangeError(
-      `지원하는 연도는 ${SOLAR_LONGITUDE_YEARS.first}~${SOLAR_LONGITUDE_YEARS.last}년이다: ${at.year}`,
+      `지원하는 연도는 ${DAY_PILLAR_YEARS.first}~${DAY_PILLAR_YEARS.last}년이다: ${at.year}`,
     )
   }
   const branchIndex = Math.floor((at.hour * 60 + at.minute + 60) / 120) % 12

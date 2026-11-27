@@ -327,7 +327,8 @@ describe('getHourPillar: 시간(오자둔)', () => {
     expect(hour(at(next.year, next.month, next.day, 0, 30))).toBe('병자')
   })
 
-  it('야자시(23:00~24:00)와 다음 날 조자시(00:00~01:00)의 시주가 같다 (1900~2150년 전체)', () => {
+  // 2150-12-31은 다음 날(2151-01-01)이 지원 범위 밖이라 이 반복에서 빼고, 바로 아래 테스트에서 따로 확인한다
+  it('야자시(23:00~24:00)와 다음 날 조자시(00:00~01:00)의 시주가 같다 (1900-01-01~2150-12-30)', () => {
     for (let time = Date.UTC(1900, 0, 1); time < Date.UTC(2150, 11, 31); time += 86_400_000) {
       const today = new Date(time)
       const tomorrow = new Date(time + 86_400_000)
