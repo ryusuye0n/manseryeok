@@ -15,8 +15,11 @@ export const DAY_PILLAR_YEARS: { readonly first: number; readonly last: number }
 })
 
 // 날짜(그레고리력)의 60갑자 순서. 범위 검사는 하지 않는다. day가 달의 끝을 넘으면 다음 달로 넘어간다.
+// 연도는 그대로 쓴다 (Date.UTC는 0~99년을 1900~1999년으로 바꾸므로 setUTCFullYear로 계산한다).
 export function dayIndexOfDate(year: number, month: number, day: number): number {
-  const days = Date.UTC(year, month - 1, day) / 86_400_000
+  const date = new Date(0)
+  date.setUTCFullYear(year, month - 1, day)
+  const days = date.getTime() / 86_400_000
   return (((REFERENCE_INDEX + (days - REFERENCE_DAY)) % 60) + 60) % 60
 }
 
