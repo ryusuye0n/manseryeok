@@ -9,6 +9,7 @@ import {
   getSolarTerms,
   getYearPillar,
   type Pillar,
+  SOLAR_TERM_NAMES,
   toKoreaStandardTime,
 } from '../src/index'
 
@@ -322,6 +323,121 @@ describe('getSaju: 절기 경계 경고', () => {
         affects: ['month'],
       },
     ])
+  })
+
+  it('시각을 모르면 벽시계 정오를 표준시로 바꿔 계산한다 (UTC+8:30 시기 1954-12-07 정오는 표준시 12:30)', () => {
+    const saju = getSaju(birth(1954, 12, 7))
+    expect(saju.pillars.day).toEqual(
+      getDayPillar({ year: 1954, month: 12, day: 7, hour: 12, minute: 30 }),
+    )
+    // 대설은 표준시로 12월 8일 00:29(벽시계 12월 7일 23:59)이므로 12월 7일 정오는 아직 해월이다
+    expect(saju.pillars.month.branch).toBe('해')
+  })
+
+  it('시각을 모를 때 절기 경고는 벽시계 날짜로 판정한다 (1954년 대설 표준시 12-08 00:29는 벽시계 12-07 23:59)', () => {
+    const term = getSolarTerms(1954).find((candidate) => candidate.name === '대설')
+    expect(term).toMatchObject({ month: 12, day: 8, hour: 0, minute: 29 })
+    // 벽시계 12월 7일 23:59 출생은 대설 뒤이므로 12월 7일에 경고가 붙고, 12월 8일에는 붙지 않는다
+    const seventh = getSaju(birth(1954, 12, 7)).warnings
+    expect(seventh).toEqual([
+      {
+        type: 'solar-term-on-day',
+        term: '대설',
+        time: { year: 1954, month: 12, day: 8, hour: 0, minute: 29 },
+        affects: ['month'],
+      },
+    ])
+    expect(getSaju(birth(1954, 12, 8)).warnings).toEqual([])
+    expect(getSaju(birth(1954, 12, 6)).warnings).toEqual([])
+  })
+
+  it('정오 부근에 12절이 있는 날은 벽시계 정오를 표준시로 바꿔야 월주가 맞다 (1908~1961년, 1987~1988년)', () => {
+    let discriminating = 0
+    for (const termYear of [
+      1908, 1909, 1910, 1911, 1948, 1949, 1950, 1951, 1954, 1955, 1956, 1957, 1958, 1959, 1960,
+      1961, 1987, 1988,
+    ]) {
+      for (const term of getSolarTerms(termYear)) {
+        const minutes = term.hour * 60 + term.minute
+        if (SOLAR_TERM_NAMES.indexOf(term.name) % 2 !== 0 || minutes < 11 * 60 || minutes > 13 * 60)
+          continue
+        const wallNoon: CivilDateTime = {
+          year: term.year,
+          month: term.month,
+          day: term.day,
+          hour: 12,
+          minute: 0,
+        }
+        const standardNoon = toKoreaStandardTime(wallNoon).time
+        const saju = getSaju(birth(term.year, term.month, term.day))
+        expect(saju.pillars.month, `${termYear} ${term.name}`).toEqual(getMonthPillar(standardNoon))
+        if (name(getMonthPillar(wallNoon)) !== name(getMonthPillar(standardNoon))) discriminating++
+      }
+    }
+    // 벽시계 정오와 표준시 정오에서 월주가 실제로 달라지는 날이 있어야 이 검사가 의미가 있다
+    expect(discriminating).toBeGreaterThanOrEqual(3)
+  })
+
+  it('시계가 00:00을 건너뛴 날에도 그날 하루를 구해서 판정한다 (1948-06-01 00:00~01:00은 없던 시각)', () => {
+    expect(() => getSaju(birth(1948, 6, 1))).not.toThrow()
+    expect(getSaju(birth(1948, 6, 1)).pillars.hour).toBeNull()
+  })
+
+  it('시각을 모를 때의 경고가 시각을 아는 경우와 맞는다 (1948~1961년, 1987~1988년 모든 12절)', () => {
+    // 각 12절마다, 그 절기 시각 직후로 시각을 아는 벽시계 출생을 찾아 그 벽시계 날짜에 경고가 붙는지 본다.
+    const dstYears = [
+      1948, 1949, 1950, 1951, 1954, 1955, 1956, 1957, 1958, 1959, 1960, 1961, 1987, 1988,
+    ]
+    for (const termYear of dstYears) {
+      for (const term of getSolarTerms(termYear)) {
+        if (SOLAR_TERM_NAMES.indexOf(term.name) % 2 !== 0) continue
+        // 절기 날짜 앞뒤 하루씩 벽시계 날짜 후보를 모두 살핀다
+        const dates = [-1, 0, 1].map(
+          (offset) => new Date(Date.UTC(term.year, term.month - 1, term.day + offset)),
+        )
+        const expectedDays = dates.filter((date) => {
+          const [year, month, day] = [
+            date.getUTCFullYear(),
+            date.getUTCMonth() + 1,
+            date.getUTCDate(),
+          ]
+          // 그날의 벽시계 분 중 표준시가 절기 시각과 같은 분이 있는지
+          for (let minutes = 0; minutes < 24 * 60; minutes++) {
+            for (const ambiguous of ['earlier', 'later'] as const) {
+              try {
+                const standard = toKoreaStandardTime(
+                  { year, month, day, hour: Math.floor(minutes / 60), minute: minutes % 60 },
+                  { ambiguous },
+                ).time
+                if (
+                  standard.year === term.year &&
+                  standard.month === term.month &&
+                  standard.day === term.day &&
+                  standard.hour === term.hour &&
+                  standard.minute === term.minute
+                ) {
+                  return true
+                }
+              } catch {
+                // 시계가 건너뛴 시각은 없던 시각이다
+              }
+            }
+          }
+          return false
+        })
+        expect(expectedDays.length, `${termYear} ${term.name}`).toBeGreaterThan(0)
+        for (const date of dates) {
+          const warned = getSaju(
+            birth(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()),
+          ).warnings.some(
+            (warning) => warning.type === 'solar-term-on-day' && warning.term === term.name,
+          )
+          expect(warned, `${termYear} ${term.name} ${date.toISOString().slice(0, 10)}`).toBe(
+            expectedDays.includes(date),
+          )
+        }
+      }
+    }
   })
 
   it('시각을 모르는 날에 중기만 있으면 경고하지 않는다 (2024-02-19 우수)', () => {
