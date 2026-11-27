@@ -61,3 +61,11 @@ export function pillarFromIndex(value: number): Pillar {
   if (stem === undefined || branch === undefined) throw new Error(`간지를 만들 수 없다: ${value}`)
   return { stem, branch, index }
 }
+
+// 천간 번호(0~9)와 지지 번호(0~11)로 60갑자를 만든다. 둘의 홀짝이 다르면 그런 간지는 없다.
+export function pillarFromStemBranch(stemIndex: number, branchIndex: number): Pillar {
+  for (let index = 0; index < 60; index++) {
+    if (index % 10 === stemIndex && index % 12 === branchIndex) return pillarFromIndex(index)
+  }
+  throw new RangeError(`천간 ${stemIndex}과 지지 ${branchIndex}는 짝이 되지 않는다`)
+}
