@@ -43,7 +43,7 @@ export interface MajorLuckPeriod {
   pillar: Pillar
   // 이 대운이 시작되는 나이. 첫 대운은 시작 나이 그대로이고 다음부터 10년씩 늘어난다.
   startAge: LuckAge
-  // 이 대운이 시작되는 양력 날짜 (출생 날짜에 시작 나이를 달력으로 더한 값)
+  // 이 대운이 시작되는 양력 날짜. 입력한 벽시계 출생 날짜(시각을 모르면 정오)에 시작 나이를 달력으로 더한 값이다.
   startDate: LuckDate
   // 이 대운이 시작되는 해의 한국식 세는 나이 (시작하는 해 - 출생 연도 + 1)
   koreanAge: number
@@ -197,10 +197,12 @@ export function getMajorLuck(
   }
   const startAge = ageFromMinutes(Math.abs(toMs(target) - at) / 60_000)
 
+  // 시작 날짜와 세는 나이는 사용자가 입력한 벽시계 출생 날짜 기준이다 (시각을 모르면 정오)
+  const wallBirth = { year: birth.year, month: birth.month, day: birth.day, hour: birth.hour ?? 12 }
   const step = forward ? 1 : -1
   const periods: MajorLuckPeriod[] = Array.from({ length: count }, (_value, index) => {
     const periodAge: LuckAge = { ...startAge, years: startAge.years + 10 * index }
-    const startDate = addAge(standard, periodAge)
+    const startDate = addAge(wallBirth, periodAge)
     return {
       pillar: pillarFromIndex(saju.pillars.month.index + step * (index + 1)),
       startAge: periodAge,
