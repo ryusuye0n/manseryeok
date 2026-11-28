@@ -1324,6 +1324,49 @@ describe('getMajorLuck: 시각을 모르는 경우', () => {
     expect(noon.warnings.some((warning) => warning.type === 'start-age-approximate')).toBe(false)
   })
 
+  it('그날 안에 12절이 있으면 2개월 한도 대신 시각에 따라 크게 달라진다고 알린다 (2024-06-05 망종 13:10)', () => {
+    const luck = getMajorLuck(birth(2024, 6, 5), 'male')
+    expect(luck.warnings).toContainEqual({
+      type: 'major-luck-depends-on-time',
+      directionMayChange: false,
+    })
+    expect(luck.warnings.some((warning) => warning.type === 'start-age-approximate')).toBe(false)
+    // 실제로 정오(망종 70분 전)와 14시(망종 뒤)는 대운 간지와 시작 나이가 크게 다르다
+    const noon = getMajorLuck(birth(2024, 6, 5, 12, 0), 'male')
+    const afternoon = getMajorLuck(birth(2024, 6, 5, 14, 0), 'male')
+    expect(names(noon, 1)).not.toBe(names(afternoon, 1))
+    expect(afternoon.startAge.years).toBeGreaterThanOrEqual(9)
+    expect(noon.startAge.years).toBe(0)
+  })
+
+  it('입춘이 있는 날은 방향이 뒤집힐 수 있다고 알린다 (2024-02-04)', () => {
+    const luck = getMajorLuck(birth(2024, 2, 4), 'male')
+    expect(luck.warnings).toContainEqual({
+      type: 'major-luck-depends-on-time',
+      directionMayChange: true,
+    })
+    expect(getMajorLuck(birth(2024, 2, 4, 17, 0), 'male').direction).not.toBe(
+      getMajorLuck(birth(2024, 2, 4, 18, 0), 'male').direction,
+    )
+  })
+
+  it('보통의 날은 최대 2개월, 시계가 되감겨 25시간인 날은 3개월이다', () => {
+    expect(getMajorLuck(birth(1990, 6, 15), 'male').warnings).toContainEqual({
+      type: 'start-age-approximate',
+      maxErrorMonths: 2,
+    })
+    // 1948-09-12는 서머타임이 끝나 23:00~24:00이 두 번 있었던 25시간짜리 날이다
+    expect(getMajorLuck(birth(1948, 9, 12), 'male').warnings).toContainEqual({
+      type: 'start-age-approximate',
+      maxErrorMonths: 3,
+    })
+    // 시계가 건너뛰어 23시간인 날(1948-06-01)도 2개월이다
+    expect(getMajorLuck(birth(1948, 6, 1), 'male').warnings).toContainEqual({
+      type: 'start-age-approximate',
+      maxErrorMonths: 2,
+    })
+  })
+
   it('사주 8자의 경고도 함께 돌려준다 (시각을 모르는데 그날 입춘이 있으면)', () => {
     const luck = getMajorLuck(birth(2024, 2, 4), 'male')
     expect(luck.warnings.some((warning) => warning.type === 'solar-term-on-day')).toBe(true)
@@ -1338,6 +1381,34 @@ describe('getMajorLuck: 옵션과 서비스 입력', () => {
     expect(luck.direction).toBe('forward')
     expect(luck.startAge).toEqual({ years: 0, months: 0, days: 4, hours: 10 })
     expect(luck.periods[0]?.pillar.branch).toBe('미')
+  })
+
+  it('시작 날짜와 세는 나이는 입력한 벽시계 출생 날짜 기준이다 (표준시로 날짜가 바뀌어도)', () => {
+    // 1988-07-07 00:30 서머타임은 표준시로 07-06 23:30이지만, 시작 날짜는 07-07에서 더한다
+    const dst = getMajorLuck(birth(1988, 7, 7, 0, 30), 'male')
+    expect(dst.periods[0]?.startDate).toEqual(
+      addAge({ year: 1988, month: 7, day: 7, hour: 0 }, dst.startAge),
+    )
+    // 1957-12-31 23:50 UTC+8:30은 표준시로 1958-01-01 00:20이지만, 세는 나이는 1957년 출생으로 센다
+    const newYear = getMajorLuck(birth(1957, 12, 31, 23, 50), 'male')
+    const first = newYear.periods[0]
+    expect(first?.startDate).toEqual(
+      addAge({ year: 1957, month: 12, day: 31, hour: 23 }, newYear.startAge),
+    )
+    expect(first?.koreanAge).toBe((first?.startDate.year ?? 0) - 1957 + 1)
+  })
+
+  it('시각을 모르면 시작 날짜는 벽시계 정오에서 더한다 (시간이 12시간 이상이면 날짜가 하루 늘어난다)', () => {
+    let overHalfDay = 0
+    for (let day = 1; day <= 28; day++) {
+      const luck = getMajorLuck(birth(1990, 5, day), 'male')
+      expect(luck.periods[0]?.startDate).toEqual(
+        addAge({ year: 1990, month: 5, day, hour: 12 }, luck.startAge),
+      )
+      if (luck.startAge.hours >= 12) overHalfDay++
+    }
+    // 정오 기준과 자정 기준이 갈리는 날이 있어야 이 검사가 의미가 있다
+    expect(overHalfDay).toBeGreaterThan(0)
   })
 
   it('dayChangeAt과 ambiguousTime 옵션을 8자 계산에 넘긴다', () => {
