@@ -11,8 +11,8 @@ import type { Pillar } from './ganzhi'
 import { getHourPillar } from './hour-pillar'
 import { KOREA_TIME_YEARS, toKoreaStandardTime } from './korea-time'
 import { getMonthPillar } from './month-pillar'
-import { SOLAR_TERM_NAMES, type SolarTermName } from './solar-term-names'
-import { getSolarTerms, SOLAR_TERM_SUPPORTED_YEARS, type SolarTerm } from './solar-terms'
+import type { SolarTermName } from './solar-term-names'
+import { getJieTerms, type SolarTerm } from './solar-terms'
 import { getYearPillar } from './year-pillar'
 
 export interface BirthInput {
@@ -86,17 +86,8 @@ const NEAR_MINUTES = { table: 2, calculated: 10 } as const
 const toMs = (time: CivilDateTime): number =>
   Date.UTC(time.year, time.month - 1, time.day, time.hour, time.minute)
 
-// 연주나 월주를 바꾸는 12절(소한, 입춘, 경칩 ...)
-const isJie = (term: SolarTerm): boolean => SOLAR_TERM_NAMES.indexOf(term.name) % 2 === 0
-
 const affectedBy = (term: SolarTerm): SajuPillarName[] =>
   term.name === '입춘' ? ['year', 'month'] : ['month']
-
-// 한 해의 12절. 지원하지 않는 해면 빈 배열이다.
-function jieTermsOf(year: number): SolarTerm[] {
-  if (year < SOLAR_TERM_SUPPORTED_YEARS.first || year > SOLAR_TERM_SUPPORTED_YEARS.last) return []
-  return getSolarTerms(year).filter(isJie)
-}
 
 // 벽시계로 그날 00:00을 표준시로 바꾼 순간(밀리초). 시계가 건너뛰어 00:00이 없던 날
 // (1948-06-01처럼 00:00~01:00이 없던 날)은 그날 처음 존재하는 시각이다.
@@ -170,7 +161,7 @@ export function getSaju(birth: BirthInput, options?: SajuOptions): Saju {
     const years = new Set([new Date(startMs).getUTCFullYear()])
     if (Number.isFinite(endMs)) years.add(new Date(endMs).getUTCFullYear())
     for (const termYear of years) {
-      for (const term of jieTermsOf(termYear)) {
+      for (const term of getJieTerms(termYear)) {
         const termMs = toMs(term)
         if (termMs >= startMs && termMs < endMs) {
           warnings.push({
@@ -208,7 +199,7 @@ export function getSaju(birth: BirthInput, options?: SajuOptions): Saju {
 
   const at = toMs(standard)
   let nearest: { term: SolarTerm; minutes: number } | undefined
-  for (const term of jieTermsOf(standard.year)) {
+  for (const term of getJieTerms(standard.year)) {
     const minutes = (at - toMs(term)) / 60_000
     if (nearest === undefined || Math.abs(minutes) < Math.abs(nearest.minutes)) {
       nearest = { term, minutes }
