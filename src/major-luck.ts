@@ -8,7 +8,13 @@
 
 import { type Pillar, pillarFromIndex } from './ganzhi'
 import { toKoreaStandardTime } from './korea-time'
-import { type BirthInput, getSaju, type SajuOptions, type SajuWarning } from './saju'
+import {
+  type BirthInput,
+  getSaju,
+  type SajuOptions,
+  type SajuWarning,
+  startOfWallDayMs,
+} from './saju'
 import { getJieTerms } from './solar-terms'
 
 export type Gender = 'male' | 'female'
@@ -47,8 +53,17 @@ export type MajorLuckWarning =
   | SajuWarning
   | {
       // 출생 시각을 모르고 정오로 계산했다. 시작 나이가 이 값(개월)만큼 어긋날 수 있다.
+      // 그날 안에 12절이 없을 때만 성립한다 (있으면 아래 경고가 붙는다).
+      // 보통 2개월(정오에서 하루 끝까지 12시간 = 6시간이 1개월)이고, 시계가 되감겨 하루가 25시간인 날은 3개월이다.
       type: 'start-age-approximate'
       maxErrorMonths: number
+    }
+  | {
+      // 출생 시각을 모르는데 그날 안에 12절이 있다. 정오와 실제 출생 시각 사이에 절기가 끼면
+      // 월주가 달라지고 대운의 기준 절기가 바뀌어, 대운 간지 전체와 시작 나이(수십 배까지)가 달라질 수 있다.
+      // 입춘이 있는 날이면 연주(연간의 음양)가 바뀌어 방향(direction)까지 뒤집힐 수 있다.
+      type: 'major-luck-depends-on-time'
+      directionMayChange: boolean
     }
 
 export interface MajorLuck {
@@ -108,6 +123,19 @@ export function addAge(
   }
 }
 
+// 출생 시각을 모를 때 시작 나이가 어긋날 수 있는 최대 개월 수. 정오에서 벽시계 하루의 양 끝까지 가장 먼 쪽 시간을
+// 6시간 = 1개월로 환산해 올린다. 보통은 12시간이라 2개월이고, 25시간인 날은 3개월이다.
+function maxStartAgeErrorMonths(birth: BirthInput, noonMs: number): number {
+  const next = new Date(Date.UTC(birth.year, birth.month - 1, birth.day + 1))
+  const startMs = startOfWallDayMs(birth.year, birth.month, birth.day)
+  const endMs = startOfWallDayMs(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate())
+  const farthest = Math.max(
+    noonMs - startMs,
+    Number.isFinite(endMs) ? endMs - noonMs : 12 * 3_600_000,
+  )
+  return Math.ceil(farthest / 60_000 / MINUTES_PER_MONTH_OF_AGE)
+}
+
 export function getMajorLuck(
   birth: BirthInput,
   gender: Gender,
@@ -133,7 +161,20 @@ export function getMajorLuck(
       minute: 0,
     }).time
   const warnings: MajorLuckWarning[] = [...saju.warnings]
-  if (!timeKnown) warnings.push({ type: 'start-age-approximate', maxErrorMonths: 2 })
+  if (!timeKnown) {
+    const termOnDay = saju.warnings.filter((warning) => warning.type === 'solar-term-on-day')
+    if (termOnDay.length > 0) {
+      warnings.push({
+        type: 'major-luck-depends-on-time',
+        directionMayChange: termOnDay.some((warning) => warning.affects.includes('year')),
+      })
+    } else {
+      warnings.push({
+        type: 'start-age-approximate',
+        maxErrorMonths: maxStartAgeErrorMonths(birth, toMs(standard)),
+      })
+    }
+  }
 
   // 연간이 양(60갑자 순서가 짝수)인지
   const yearIsYang = saju.pillars.year.index % 2 === 0

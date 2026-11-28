@@ -92,7 +92,7 @@ const affectedBy = (term: SolarTerm): SajuPillarName[] =>
 // 벽시계로 그날 00:00을 표준시로 바꾼 순간(밀리초). 시계가 건너뛰어 00:00이 없던 날
 // (1948-06-01처럼 00:00~01:00이 없던 날)은 그날 처음 존재하는 시각이다.
 // 지원 범위(2150년) 다음 날이면 끝이 없는 것으로 본다.
-function startOfWallDayMs(year: number, month: number, day: number): number {
+export function startOfWallDayMs(year: number, month: number, day: number): number {
   const date = new Date(Date.UTC(year, month - 1, day))
   if (date.getUTCFullYear() > KOREA_TIME_YEARS.last) return Number.POSITIVE_INFINITY
   for (let minutes = 0; minutes < 180; minutes++) {
