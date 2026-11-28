@@ -6,6 +6,17 @@ export { EARTHLY_BRANCHES, HEAVENLY_STEMS } from './ganzhi'
 export { getHourPillar } from './hour-pillar'
 export type { KoreaStandardTime, KoreaTimeOptions } from './korea-time'
 export { KOREA_TIME_YEARS, toKoreaStandardTime } from './korea-time'
+export type {
+  Gender,
+  LuckAge,
+  LuckDate,
+  LuckDirection,
+  MajorLuck,
+  MajorLuckOptions,
+  MajorLuckPeriod,
+  MajorLuckWarning,
+} from './major-luck'
+export { getMajorLuck } from './major-luck'
 export { getMonthPillar } from './month-pillar'
 export type {
   BirthInput,

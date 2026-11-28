@@ -134,3 +134,10 @@ export function getSolarTermPeriod(at: CivilDateTime): SolarTermPeriod {
   }
   return { current, next }
 }
+
+// 한 해의 12절(소한, 입춘, 경칩 ...)을 시각 순서로 돌려준다. 연주, 월주를 바꾸고 대운의 기준이 되는 절기다.
+// 지원하지 않는 해면 빈 배열이다.
+export function getJieTerms(year: number): SolarTerm[] {
+  if (!isSupportedYear(year)) return []
+  return getSolarTerms(year).filter((term) => SOLAR_TERM_NAMES.indexOf(term.name) % 2 === 0)
+}

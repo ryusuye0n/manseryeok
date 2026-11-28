@@ -13,6 +13,7 @@ describe('진입점', () => {
       'SOLAR_TERM_YEARS',
       'getDayPillar',
       'getHourPillar',
+      'getMajorLuck',
       'getMonthPillar',
       'getSaju',
       'getSolarTermPeriod',
